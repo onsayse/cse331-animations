@@ -3,56 +3,120 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSE 331 Animations</title>
+  <title>CSE 331 Interactive Visualizers</title>
+
   <style>
     body {
       font-family: Arial, Helvetica, sans-serif;
-      max-width: 850px;
+      max-width: 900px;
       margin: 60px auto;
       padding: 0 24px;
       line-height: 1.6;
       color: #1f2937;
     }
+
     h1 {
       color: #18453B;
-      margin-bottom: 8px;
+      margin-bottom: 5px;
     }
+
+    h3 {
+      margin-top: 0;
+      color: #555;
+      font-weight: normal;
+    }
+
     .subtitle {
       color: #4b5563;
-      margin-bottom: 32px;
+      margin-bottom: 35px;
     }
+
     .card {
       border: 1px solid #d1d5db;
       border-radius: 12px;
-      padding: 20px;
-      margin: 16px 0;
+      padding: 22px;
+      margin: 18px 0;
+      transition: 0.2s ease;
     }
+
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
     .card h2 {
       margin-top: 0;
+      color: #18453B;
     }
+
     a {
       color: #18453B;
       font-weight: bold;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    footer {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      color: #666;
+      font-size: 0.9em;
+      text-align: center;
     }
   </style>
 </head>
+
 <body>
-  <h1>CSE 331 · Interactive Animations</h1>
 
-  <p class="subtitle">
-    Welcome! You will find the interactive animations I create for CSE 331 here.
-    These tools are designed to help you visualize the algorithms and concepts we discuss in class.
-  </p>
+<h1>CSE 331 Interactive Visualizers</h1>
+<h3>Michigan State University</h3>
 
-  <div class="card">
-    <h2>Recursion Animator</h2>
+<p class="subtitle">
+Welcome! These interactive visualizers accompany the CSE 331 lectures and are designed to help you build an intuitive understanding of algorithms and data structures through animation and step-by-step execution.
+</p>
+
+<div class="card">
+    <h2>Recursion Visualizer</h2>
+
     <p>
-      Explore recursive linear search, binary search, power, find-min,
-      Fibonacci, recursion trees, and recurrence behavior.
+    Visualize recursive function calls, the call stack, recursion trees,
+    linear search, binary search, power, find-min, Fibonacci, and recurrence behavior.
     </p>
-    <p><a href="recursion_animations.html">Open Recursion Animator →</a></p>
-  </div>
 
-  <p>More CSE 331 animations will be added during the semester.</p>
+    <p>
+        <a href="recursion_animations.html">
+            ▶ Open Recursion Visualizer
+        </a>
+    </p>
+</div>
+
+<div class="card">
+    <h2>Sorting Visualizer</h2>
+
+    <p>
+    Explore and compare Selection Sort, Bubble Sort, Insertion Sort,
+    Merge Sort, Quick Sort, and Radix Sort through interactive animations,
+    execution traces, and runtime analysis.
+    </p>
+
+    <p>
+        <a href="sorting_animations_analysis.html">
+            ▶ Open Sorting Visualizer
+        </a>
+    </p>
+</div>
+
+<p>
+More visualizers will be added throughout the semester as we explore additional algorithms and data structures.
+</p>
+
+<footer>
+Developed by <strong>Professor Sebnem Onsay</strong><br>
+CSE 331 • Michigan State University
+</footer>
+
 </body>
 </html>
