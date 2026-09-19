@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSE 331 · Sorting Animations + Analysis</title>
+<meta name="description" content="Selection, bubble, insertion, merge, quick and radix sort walkthroughs built from the exact lecture code, with the run-time analysis of each: loop sums, recurrences, Master Theorem, substitution, recursion trees, best/average/worst case, in place and stability. Offline, single file, no server.">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#5b6470; --line:#cfd5dd;
+  --accent:#1f5fbf; --accent-ink:#ffffff;
+  --cmp:#d97706; --cmp-bg:#fff3e0;
+  --min:#1d4ed8; --min-bg:#dbe7ff;
+  --final:#15803d; --final-bg:#dcf5e3;
+  --sorted:#7c3aed; --sorted-bg:#efe6ff;
+  --shift:#b45309; --shift-bg:#fdf1d6;
+  --hole:#6b7280; --hole-bg:#f1f3f5;
+  --key:#be185d; --key-bg:#ffe1ec;
+  --le:#1d4ed8; --le-bg:#dbe7ff; --ge:#b45309; --ge-bg:#fdf1d6;
+  --node:#94a3b8; --node-active:#1f5fbf; --node-sorted:#15803d;
+  --code-bg:#0f172a; --code-ink:#e2e8f0; --code-hl:#334155; --code-hl-border:#fbbf24;
+  --radius:10px; --tile:88px;
+  --dur:420ms;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"],button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+.app{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;height:100vh;gap:10px;padding:10px 14px}
+@media (max-width:1100px){.main{grid-template-columns:1fr !important}}
+
+/* ---------- header ---------- */
+header{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);padding:8px 14px}
+header h1{font-size:20px;margin:0 14px 0 0;white-space:nowrap}
+header h1 small{color:var(--muted);font-weight:normal;font-size:14px;margin-left:8px}
+.tabs{display:flex;gap:4px}
+.tabs button{font-size:16px;font-weight:600;padding:7px 13px}
+.ctl{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.ctl label{color:var(--muted);font-size:14px}
+select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+input[type=text],input[type=number]{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer}
+.toggle input{width:18px;height:18px}
+#custom-row{display:none;flex-basis:100%;gap:10px;align-items:center;flex-wrap:wrap}
+#custom-row.show{display:flex}
+#custom-msg{color:#b91c1c;font-size:14px}
+
+/* ---------- main ---------- */
+.main{display:grid;grid-template-columns:minmax(0,3fr) minmax(360px,2fr);gap:10px;min-height:0}
+.left,.right{overflow:auto;min-height:0;padding-bottom:2px}
+.left,.right{display:flex;flex-direction:column;gap:10px;min-width:0}
+.left>.panel,.right>.panel{flex:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px}
+.panel h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+
+/* ---------- stage ---------- */
+.stage-wrap{position:relative;overflow:hidden}
+.stage{position:relative;height:300px;user-select:none}
+.bracket{position:absolute;top:2px;height:26px;border:2px solid var(--muted);border-bottom:none;
+  border-radius:8px 8px 0 0;transition:left var(--dur),width var(--dur);opacity:0}
+.bracket.show{opacity:1}
+.bracket span{position:absolute;left:50%;top:2px;transform:translate(-50%,0);white-space:nowrap;
+  font-size:13px;color:var(--muted);background:var(--panel);padding:0 6px;line-height:1.3}
+.held-row{position:absolute;top:8px;height:calc(var(--tile) + 30px);left:0;right:0}
+.held{position:absolute;width:var(--tile);height:var(--tile);top:22px;transition:left var(--dur)}
+.held .cap{position:absolute;top:4px;left:8px;right:auto;text-align:left;font-size:11px;font-weight:700;color:var(--key);letter-spacing:.04em;text-transform:uppercase;z-index:1}
+.slot-row{position:absolute;top:60px;height:var(--tile);left:0;right:0}
+.slot{position:absolute;top:0;width:var(--tile);height:var(--tile)}
+.cap{position:absolute;top:-24px;left:0;right:0;text-align:center;font-size:13px;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.idx{position:absolute;top:calc(var(--tile) + 4px);left:0;right:0;text-align:center;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tile{position:absolute;inset:0;border:3px solid var(--ink);border-radius:12px;background:var(--panel);
+  display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;
+  font-variant-numeric:tabular-nums;transition:background-color var(--dur),border-color var(--dur),opacity var(--dur)}
+.tile .tag{font-size:16px;font-weight:600;margin-left:3px;align-self:flex-end;margin-bottom:12px;color:var(--muted)}
+.tile .lock{position:absolute;right:6px;top:4px;font-size:14px}
+.slot.min .tile{border-color:var(--min);background:var(--min-bg)}
+.slot.min .cap{color:var(--min)}
+.slot.cmp .tile{border:4px dashed var(--cmp);background:var(--cmp-bg)}
+.slot.cmp.min .tile{background:var(--min-bg);border-color:var(--min)}
+.slot.cmp .cap{color:var(--cmp)}
+.slot.cmp.min .cap{color:var(--min)}
+.slot.sorted .tile{border-color:var(--sorted);
+  background:repeating-linear-gradient(135deg,var(--sorted-bg) 0 8px,#fff 8px 14px)}
+.slot.sorted .cap{color:var(--sorted)}
+.slot.shifted .tile{border-color:var(--shift);background:var(--shift-bg)}
+.slot.shifted .cap{color:var(--shift)}
+.slot.final .tile{border-color:var(--final);background:var(--final-bg);border-style:solid}
+.slot.final .cap{color:var(--final)}
+.slot.hole .tile{border:3px dashed var(--hole);background:var(--hole-bg);color:var(--hole);opacity:.75}
+.slot.hole .tile .val{text-decoration:line-through;text-decoration-thickness:2px}
+.slot.hole .cap{color:var(--hole)}
+.slot.moved .tile{box-shadow:0 0 0 5px rgba(31,95,191,.35)}
+.slot.inflight .tile{opacity:.25}
+.held .tile{border-color:var(--key);background:var(--key-bg);border-style:solid}
+.held.inflight .tile{opacity:0}
+.ghost{position:absolute;width:var(--tile);height:var(--tile);z-index:5;pointer-events:none;
+  transition:transform var(--dur) cubic-bezier(.4,0,.2,1)}
+.ghost .tile{box-shadow:0 8px 22px rgba(0,0,0,.25);border-color:var(--accent);background:#fff}
+/* pointer rows */
+.ptr-rows{position:absolute;left:0;right:0}
+.ptr{position:absolute;width:var(--tile);height:24px;text-align:center;font-size:15px;font-weight:700;
+  transition:left var(--dur);opacity:0;line-height:1}
+.ptr.show{opacity:1}
+.ptr .arrow{display:block;font-size:13px;line-height:1}
+.ptr[data-name="i"],.ptr[data-name="index"]{color:var(--accent)}
+.ptr[data-name="j"]{color:var(--cmp)}
+.ptr[data-name="min_idx"]{color:var(--min)}
+.ptr.off{color:var(--muted);font-weight:500}
+.empty-note{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px}
+.stage-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.stage-head h2{margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--muted);justify-content:flex-end}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:14px;height:14px;border-radius:4px;border:2px solid var(--ink);display:inline-block}
+.legend .l-cmp{border:2px dashed var(--cmp);background:var(--cmp-bg)}
+.legend .l-min{border-color:var(--min);background:var(--min-bg)}
+.legend .l-final{border-color:var(--final);background:var(--final-bg)}
+.legend .l-sorted{border-color:var(--sorted);background:repeating-linear-gradient(135deg,var(--sorted-bg) 0 3px,#fff 3px 6px)}
+.legend .l-shift{border-color:var(--shift);background:var(--shift-bg)}
+.legend .l-hole{border:2px dashed var(--hole);background:var(--hole-bg)}
+.legend .l-key{border-color:var(--key);background:var(--key-bg)}
+
+/* ---------- explanation + counters ---------- */
+.explain{min-height:84px}
+.explain .now{font-size:21px;line-height:1.35;margin:0 0 4px}
+.explain .inv{font-size:15px;color:var(--muted);margin:0}
+.explain .inv b{color:var(--ink)}
+.explain .stab{margin:8px 0 0;padding:8px 10px;border-left:4px solid var(--key);background:var(--key-bg);font-size:16px;border-radius:0 8px 8px 0}
+.explain .stab:empty{display:none}
+.counters{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:4px 8px;text-align:center}
+.stat .v{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stat .s{font-size:11px;color:var(--muted)}
+.counters-note{font-size:12px;color:var(--muted);margin:4px 0 0}
+.stat.bump .v{animation:bump .35s}
+@keyframes bump{50%{transform:scale(1.18);color:var(--accent)}}
+.eqorder{font-size:15px;color:var(--muted);margin-top:8px;display:none}
+.eqorder.show{display:block}
+.eqorder code{font-size:15px;color:var(--ink)}
+
+/* ---------- code + vars ---------- */
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:8px 0;overflow:auto;max-height:46vh;
+  font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.code .ln{display:flex;padding:0 12px;white-space:pre-wrap}
+.code .ln span:last-child{flex:1;min-width:0;word-break:break-word}
+.code .ln .no{width:34px;color:#64748b;text-align:right;margin-right:14px;flex:none;user-select:none}
+.code .ln.hl{background:var(--code-hl);box-shadow:inset 4px 0 0 var(--code-hl-border)}
+.code .ln.dim{opacity:.55}
+.code-src{font-size:13px;color:var(--muted);margin:6px 0 0}
+details summary{cursor:pointer;color:var(--muted);font-size:14px}
+.vars{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.var{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.var .n{font:600 14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted)}
+.var .v{font:700 22px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.var.changed{border-color:var(--accent);background:#eef4ff}
+.var .v.none{color:var(--muted);font-weight:500}
+.summary table{border-collapse:collapse;width:100%;font-size:15px}
+.summary th,.summary td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.summary th:first-child,.summary td:first-child{text-align:left}
+.summary tr.cur td{background:#eef4ff}
+.summary td.cur{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700}
+.summary .note{font-size:13px;color:var(--muted);margin:6px 0 0}
+.notes{font-size:15px}
+.notes p{margin:4px 0}
+
+/* ---------- transport ---------- */
+footer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px 14px;display:flex;flex-direction:column;gap:6px}
+.transport{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.transport .grp{display:flex;gap:6px;align-items:center}
+.transport button{font-size:16px;padding:6px 11px;min-width:44px}
+#btn-play{min-width:100px}
+.pos{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.pos b{color:var(--ink)}
+.tl-row{display:flex;gap:16px;align-items:center}
+.tl-row .grp{display:flex;gap:12px;align-items:center;flex:none}
+.timeline{position:relative;height:34px;flex:1;min-width:200px}
+.timeline input[type=range]{position:absolute;left:0;right:0;top:8px;width:100%;margin:0;z-index:2}
+.ticks{position:absolute;left:8px;right:8px;top:24px;height:10px;pointer-events:none}
+.tick{position:absolute;top:0;width:2px;height:10px;background:var(--muted);transform:translateX(-1px)}
+.tick.ex{background:var(--final);height:12px}
+.kbd{font-size:13px;color:var(--muted)}
+@media (max-height:820px){.kbd{display:none}}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font:12px ui-monospace,Menlo,monospace;background:#fff}
+/* predict overlay */
+.predict{display:none;border:2px solid var(--accent);background:#eef4ff;border-radius:10px;padding:10px 14px;font-size:18px}
+.predict.show{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.predict .q{flex:1 1 300px}
+.predict .q small{display:block;color:var(--muted);font-size:14px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.help{display:none;position:fixed;inset:auto 14px 14px auto;max-width:460px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:14px 18px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:20;font-size:15px}
+.help.show{display:block}
+.help h3{margin:0 0 8px}
+.help dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0}
+.help dt{white-space:nowrap}
+
+/* quick sort regions */
+.slot.le .tile{border-color:var(--le);background:var(--le-bg)}
+.slot.le .cap{color:var(--le)}
+.slot.ge .tile{border-color:var(--ge);background:var(--ge-bg)}
+.slot.ge .cap{color:var(--ge)}
+.slot.mid .cap{color:var(--accent)}
+.slot.mid .tile{box-shadow:inset 0 0 0 3px var(--accent)}
+.slot.outside .tile{opacity:.45}
+.legend .l-le{border-color:var(--le);background:var(--le-bg)}
+.legend .l-ge{border-color:var(--ge);background:var(--ge-bg)}
+.legend .l-msorted{border-color:var(--final);background:var(--final-bg)}
+.legend .l-node{border-color:var(--node-active);background:#fff}
+.legend .l-released{border-color:var(--node);background:#fff;opacity:.4}
+.legend .l-bucket{border-color:var(--sorted);background:var(--sorted-bg)}
+.ptr[data-name="left"],.ptr[data-name="first"]{color:var(--le)}
+.ptr[data-name="right"],.ptr[data-name="last"]{color:var(--ge)}
+.ptr[data-name="mid"]{color:var(--accent)}
+.stackline{font-size:15px;color:var(--muted);margin-top:8px;display:none;font-variant-numeric:tabular-nums}
+.stackline.show{display:block}
+.stackline code{font-size:15px;color:var(--ink)}
+.stackline b{color:var(--accent)}
+/* merge recursion tree */
+.node{position:absolute;border:2px solid var(--node);border-radius:12px;background:#fff;transition:opacity var(--dur),border-color var(--dur)}
+.node .nlabel{position:absolute;left:6px;top:-9px;font-size:11px;font-weight:700;color:var(--node);background:#fff;padding:0 4px;letter-spacing:.03em}
+.node.active{border-color:var(--node-active);border-width:3px}
+.node.active .nlabel{color:var(--node-active)}
+.node.merging{border-color:var(--cmp);border-width:3px}
+.node.merging .nlabel{color:var(--cmp)}
+.node.sorted{border-color:var(--node-sorted)}
+.node.sorted .nlabel{color:var(--node-sorted)}
+.node.released{opacity:.28}
+.node.pending{border-style:dashed}
+.tslot{position:absolute}
+.tslot .tile{font-size:inherit}
+.tslot .cap{top:auto;bottom:-20px;font-size:12px}
+.tslot.cmp .tile{border:3px dashed var(--cmp);background:var(--cmp-bg)}
+.tslot.cmp .cap{color:var(--cmp)}
+.tslot.out .tile{border:3px dashed var(--accent);background:#eef4ff}
+.tslot.out .cap{color:var(--accent)}
+.tslot.merged .tile{border-color:var(--final);background:var(--final-bg)}
+.tslot.unwritten .tile{opacity:.35}
+.tslot.took .tile{box-shadow:0 0 0 4px rgba(31,95,191,.35)}
+.tslot.consumed .tile{opacity:.3}
+/* radix buckets */
+.bucket{position:absolute;border:2px solid var(--line);border-radius:10px;background:#fafbfc}
+.bucket .blabel{position:absolute;left:0;right:0;top:-22px;text-align:center;font-size:14px;font-weight:700;color:var(--muted)}
+.bucket.target{border-color:var(--sorted);background:var(--sorted-bg)}
+.bucket.target .blabel{color:var(--sorted)}
+.bucket.draining{border-color:var(--accent)}
+.bslot{position:absolute}
+.bslot .tile{font-size:inherit;border-width:2px;border-radius:8px}
+.bslot.consumed .tile{opacity:.25}
+.tile .dg{display:inline-block}
+.tile .dg.on{color:var(--key);text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:3px}
+.tile .dg.pad{opacity:.28}
+.slot.taken .tile{opacity:.35}
+.slot.written .tile{border-color:var(--final);background:var(--final-bg)}
+.slot.cmp .tile .dg.on{color:var(--cmp)}
+
+/* ---------- analysis panel (+ Analysis edition) ---------- */
+.recur h2{margin-bottom:6px}
+.recur .tn{font:700 22px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:2px 0 2px}
+.recur .tn small{font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--muted);margin-left:8px;font-weight:400}
+.recur .tn sub,.recur .tn sup{font-size:12px}
+.recur .ans{font-size:16px;margin:0 0 8px}
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+@media (max-width:1100px){.tools{grid-template-columns:1fr}}
+.tool{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.35}
+.tool .tt{font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px}
+.tool .badge{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--line);color:var(--ink);white-space:nowrap}
+.tool.best{border:2px solid var(--final);background:var(--final-bg)}
+.tool.best .badge{background:var(--final);color:#fff}
+.tool.ok .badge{background:#dbeafe;color:#1e3a8a}
+.tool.na{opacity:.85}
+.tool.na .badge{background:#fee2e2;color:#991b1b}
+.work{border-left:4px solid var(--accent);background:#f3f6fb;border-radius:0 8px 8px 0;padding:8px 12px;font-size:14px}
+.work h3{margin:0 0 4px;font-size:13px;letter-spacing:.05em;color:var(--accent)}
+.work .ln{font:14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:2px 0;white-space:pre-wrap}
+.work .ln sub,.work .ln sup{font-size:10px}
+.work table{border-collapse:collapse;margin:4px 0;font-variant-numeric:tabular-nums}
+.work th,.work td{border-bottom:1px solid var(--line);padding:2px 8px;text-align:right;font-size:13px}
+.work th:first-child,.work td:first-child{text-align:left}
+.work table.cases td,.work table.cases th{text-align:left;white-space:normal}
+.work table.cases td:last-child{white-space:nowrap}
+.work .tot td{font-weight:700}
+.props{display:flex;flex-wrap:wrap;gap:6px 10px;margin:8px 0 0;font-size:13px}
+.prop{border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:#fff}
+.prop.yes{border-color:var(--final);background:var(--final-bg)}
+.prop.no{border-color:#fca5a5;background:#fee2e2}
+.prop.part{border-color:#f0c36d;background:#fff7e6}
+.measured{margin:8px 0 0;font-size:14px}
+.measured b{color:var(--final)}
+.compare table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px}
+.compare th,.compare td{border-bottom:1px solid var(--line);padding:4px 7px;text-align:left;vertical-align:top}
+.compare td:nth-child(2),.compare td:nth-child(3),.compare td:nth-child(4),.compare td:nth-child(6),.compare td:nth-child(7){white-space:nowrap}
+.compare .tw{overflow-x:auto}
+.compare td.note-cell{white-space:normal;color:var(--muted)}
+.compare tr.cur td{background:#eef4ff;font-weight:600}
+.compare td.y{color:var(--final)} .compare td.n{color:#b91c1c}
+
+/* ---------- embedded / flow layout (D2L, LMS frames, short windows) ---------- */
+html.flow .app{height:auto;min-height:100vh}
+html.flow .left,html.flow .right{overflow:visible}
+html.flow footer{position:sticky;bottom:0;z-index:10;box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+html.flow .code{max-height:none}
+.embed-bar{display:none;align-items:center;gap:12px;flex-wrap:wrap;background:#fff7e6;border:1px solid #f0c36d;border-radius:var(--radius);padding:6px 12px;font-size:14px}
+html.flow .embed-bar{display:flex}
+.embed-bar a,.embed-bar button{font-size:14px}
+@media (max-height:640px){html:not(.fit) .app{height:auto;min-height:100vh} html:not(.fit) .left,html:not(.fit) .right{overflow:visible} html:not(.fit) footer{position:sticky;bottom:0;z-index:10}}
+
+/* reduced motion: kill every transition/animation */
+@media (prefers-reduced-motion: reduce){:root{--dur:0ms}}
+html.reduce-motion{--dur:0ms}
+html.reduce-motion *{transition:none !important;animation:none !important}
+@media print{footer,.help{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="embed-bar" id="embed-bar">
+  <span>This page is showing inside another page's frame, so it uses a scrolling layout.</span>
+  <a id="open-full" href="#" target="_blank" rel="noopener">Open full-window ↗</a>
+  <button id="btn-layout" title="Switch between the fit-one-window layout and the scrolling layout">Use fit-window layout</button>
+</div>
+<header>
+  <h1 title="Animations traced from the exact lecture code, plus the run-time analysis of each">CSE 331 · Sorting <small>+ analysis</small></h1>
+  <div class="tabs" role="tablist" aria-label="Algorithm">
+    <button role="tab" data-algo="selection" aria-pressed="true">Selection</button>
+    <button role="tab" data-algo="bubble" aria-pressed="false">Bubble</button>
+    <button role="tab" data-algo="insertion" aria-pressed="false">Insertion</button>
+    <button role="tab" data-algo="merge" aria-pressed="false">Merge</button>
+    <button role="tab" data-algo="quick" aria-pressed="false">Quick</button>
+    <button role="tab" data-algo="radix" aria-pressed="false">Radix</button>
+  </div>
+  <div class="ctl"><label for="sel-input">Input</label><select id="sel-input"></select></div>
+  <div class="ctl" id="ctl-early" style="display:none"><label class="toggle" title="Trace the commented-out version at Bubble.py lines 4-15"><input type="checkbox" id="chk-early"> early-exit version (commented out)</label></div>
+  <div class="ctl" id="ctl-nowrap" style="display:none"><label class="toggle" title="Trace QuickSort_NoWrap.py instead of QuickSort.py"><input type="checkbox" id="chk-nowrap"> QuickSort_NoWrap.py</label></div>
+  <div id="custom-row">
+    <label for="custom-text" style="color:var(--muted);font-size:14px">Values (comma-separated; tags like <code>3a</code> allowed; up to 12)</label>
+    <input type="text" id="custom-text" size="34" value="6, 3, 5, 7, 2, 4">
+    <label for="rand-seed" style="color:var(--muted);font-size:14px">seed</label><input type="number" id="rand-seed" value="331" style="width:80px">
+    <label for="rand-n" style="color:var(--muted);font-size:14px">n</label><input type="number" id="rand-n" value="8" min="0" max="12" style="width:64px">
+    <button id="btn-apply">Apply</button><span id="custom-msg"></span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="left">
+    <div class="panel stage-wrap">
+      <div class="stage-head"><h2 id="stage-title">Array</h2><div class="legend" id="legend"></div></div>
+      <div class="stage" id="stage" aria-live="off">
+        <div class="bracket" id="bracket"><span id="bracket-label"></span></div>
+        <div class="held-row" id="held-row"></div>
+        <div class="slot-row" id="slot-row"></div>
+        <div class="ptr-rows" id="ptr-rows"></div>
+        <div id="tree-layer"></div>
+        <div id="bucket-layer"></div>
+      </div>
+      <div class="stackline" id="stackline"></div>
+      <div class="eqorder" id="eqorder"></div>
+    </div>
+    <div class="panel explain" aria-live="polite">
+      <h2>What just happened</h2>
+      <p class="now" id="ex-now"></p>
+      <p class="inv" id="ex-inv"></p>
+      <p class="stab" id="ex-stab"></p>
+    </div>
+    <div class="panel">
+      <div class="counters" id="counters"></div>
+      <p class="counters-note">Measured by this page's trace of the lecture code (the files have no counters): key-vs-key comparisons only — loop guards and index tests never count; a swap = 2 array writes; a shift, placement or bucket copy = 1.</p>
+    </div>
+    <div class="panel recur" id="analysis" aria-live="off"></div>
+    <div class="panel compare">
+      <details open><summary>All six sorts at a glance — best / average / worst, space, in place, stable</summary>
+        <div class="tw"><table id="compare"></table></div>
+        <p class="note" style="font-size:13px;color:var(--muted);margin:6px 0 0">Classes count key comparisons (radix: digit operations). “As written” describes the exact code in your files: no early exit in Bubble.py, strict &lt; in MergeSort.py's merge, median-of-three in QuickSort.py.</p>
+      </details>
+    </div>
+  </div>
+  <div class="right">
+    <div class="panel">
+      <h2 id="code-title">Python source</h2>
+      <div class="code" id="code" role="region" aria-label="Python source with the active line highlighted"></div>
+      <p class="code-src" id="code-src"></p>
+    </div>
+    <div class="panel">
+      <h2>Variables</h2>
+      <div class="vars" id="vars"></div>
+    </div>
+    <div class="panel summary">
+      <h2 id="summary-title">Measured cost across inputs</h2>
+      <table id="summary"></table>
+      <p class="note">Measured by this page's trace engine — the lecture files have no instrumentation. Key-vs-key comparisons only (loop guards and index checks never count); a swap = 2 array writes; a shift, placement or bucket write = 1. Playback speed is a presentation choice, not a runtime benchmark.</p>
+    </div>
+    <div class="panel notes">
+      <details open><summary>Notes on this code</summary><div id="notes"></div></details>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="predict" id="predict" role="dialog" aria-live="assertive">
+    <div class="q"><span id="predict-q"></span><small>Ask the room, then reveal. (→ or Enter also reveals.)</small></div>
+    <button class="primary" id="btn-reveal">Reveal next event</button>
+  </div>
+  <div class="transport">
+    <div class="grp">
+      <button id="btn-reset" title="Reset (Home)">⟲ Reset</button>
+      <button id="btn-prev-pass" title="Previous pass (Shift+←)">⇤ Pass</button>
+      <button id="btn-prev" title="Previous event (←)">◀ Prev</button>
+      <button id="btn-play" class="primary" title="Play / pause (Space)">▶ Play</button>
+      <button id="btn-next" title="Next event (→)">Next ▶</button>
+      <button id="btn-next-pass" title="Next pass / call boundary (Shift+→)">Pass ⇥</button>
+      <button id="btn-end" title="Jump to end (End)">⇥ End</button>
+    </div>
+    <div class="grp"><label for="speed" style="color:var(--muted);font-size:14px">Speed</label>
+      <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1" style="width:90px"><span id="speed-v" class="pos">1×</span></div>
+    <div class="pos">event <b id="pos-i">0</b> / <b id="pos-n">0</b> · <span id="pos-k"></span></div>
+  </div>
+  <div class="tl-row">
+    <div class="timeline">
+      <input type="range" id="timeline" min="0" max="0" value="0" aria-label="Timeline">
+      <div class="ticks" id="ticks"></div>
+    </div>
+    <div class="grp">
+      <label class="toggle"><input type="checkbox" id="chk-predict"> Predict mode</label>
+      <label class="toggle"><input type="checkbox" id="chk-motion"> Reduced motion</label>
+      <button id="btn-help" aria-expanded="false" title="Keyboard shortcuts (?)">? Keys</button>
+    </div>
+  </div>
+  <div class="kbd"><kbd>Space</kbd> play/pause · <kbd>→</kbd>/<kbd>←</kbd> event · <kbd>Shift</kbd>+<kbd>→</kbd>/<kbd>←</kbd> pass · <kbd>Home</kbd> reset · <kbd>End</kbd> finish · <kbd>1</kbd>–<kbd>6</kbd> algorithm · <kbd>+</kbd>/<kbd>−</kbd> speed · <kbd>P</kbd> predict · <kbd>M</kbd> reduced motion · <kbd>?</kbd> help</div>
+</footer>
+</div>
+
+<div class="help" id="help" role="dialog" aria-label="Keyboard shortcuts">
+  <h3>Keyboard</h3>
+  <dl>
+    <dt><kbd>Space</kbd></dt><dd>play / pause</dd>
+    <dt><kbd>→</kbd> <kbd>←</kbd></dt><dd>next / previous event</dd>
+    <dt><kbd>Shift</kbd>+<kbd>→</kbd> <kbd>←</kbd></dt><dd>next / previous pass or iteration</dd>
+    <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>reset / jump to the end</dd>
+    <dt><kbd>1</kbd> … <kbd>6</kbd></dt><dd>selection / bubble / insertion / merge / quick / radix</dd>
+    <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>faster / slower</dd>
+    <dt><kbd>P</kbd></dt><dd>toggle Predict mode</dd>
+    <dt><kbd>M</kbd></dt><dd>toggle reduced motion</dd>
+    <dt><kbd>?</kbd> <kbd>Esc</kbd></dt><dd>show / hide this help</dd>
+  </dl>
+</div>
+
+<script id="trace-engine">
+/* =========================================================================
+   TRACE ENGINE — deterministic, renderer-independent.  Mirrors the
+   instructor's lecture files line for line:
+     Selection.py 5-11 · Bubble.py 18-23 (+ commented early-exit 4-15) ·
+     Insertion.py 4-11 · MergeSort.py 5-27 · QuickSort.py 16-71 ·
+     QuickSort_NoWrap.py 4-35 · Radix_sort_Alg.py 1-68
+   Emits one self-contained snapshot per event, field-for-field identical
+   to sorting_animations_trace.py (verify_animations.py diffs them).
+   ========================================================================= */
+(function (root) {
+  "use strict";
+  const LINES = {
+    selection: { def: 5, for_i: 6, min_init: 7, for_j: 8, compare: 9, min_update: 10, swap: 11 },
+    bubble: { def: 18, n: 19, for_i: 20, for_j: 21, compare: 22, swap: 23 },
+    bubble_early: { def: 4, n: 5, for_i: 6, swapped: 7, for_j: 8, compare: 9, swap: 10, swapped_true: 11, early_check: 14, break: 15 },
+    insertion: { def: 4, for_index: 5, key: 6, j_init: 7, while: 8, shift: 9, j_dec: 10, place: 11 },
+    merge: { def: 5, n: 7, base: 9, mid: 10, s1: 11, s2: 12, rec1: 13, rec2: 14, merge_call: 15, merge_def: 18, ij: 20, while: 21, cond: 22, take_left: 23, take_right: 26 },
+    quick: { def: 16, inner_def: 23, base: 25, return: 26, lr: 28, mid: 32, m3c1: 35, m3s1: 36, m3c2: 37, m3s2: 38, m3c3: 39, m3s3: 40, pivot: 43, narrow: 46, outer: 49, scan_l: 51, adv_l: 52, scan_r: 54, adv_r: 55, check: 61, swap: 63, step: 65, rec1: 68, rec2: 69, call0: 71 },
+    quick_nowrap: { def: 4, last_default: 6, base: 8, return: 9, lr: 11, mid: 12, m3c1: 13, m3s1: 14, m3c2: 15, m3s2: 16, m3c3: 17, m3s3: 18, pivot: 20, narrow: 21, outer: 24, scan_l: 25, adv_l: 26, scan_r: 27, adv_r: 28, check: 29, swap: 30, step: 31, rec1: 34, rec2: 35 },
+    radix: { def: 1, max_digits: 47, pow10: 48, for_digit: 51, buckets: 52, for_num: 55, digit: 56, append: 57, collect: 60, for_bucket: 61, write: 63, pow10_mul: 66, return: 68 },
+  };
+  const CANON = [64, 34, 25, 12, 22, 11, 90];
+  const PRESETS = {
+    canonical: CANON.slice(), ascending: [1, 2, 3, 4, 5], descending: [5, 4, 3, 2, 1], insertion_q: [6, 3, 5, 7, 2, 4],
+    merge_unsorted: [4, 2, 5, 1, 3], merge_unsorted2: [8, 2, 57, 91, 22], merge_dups: [4, 2, 5, 2, 3], negatives: [-3, -1, -2, -4, 0],
+    quick_unsorted: [3, 6, 2, 7, 5, 8, 4, 1], quick_unsorted2: [8, 2, 91, 22, 55, 1, 7, 6], quick_unsorted3: [9, 4, 3, 10, 8, 2, 7],
+    quick_dups: [3, 6, 2, 7, 2, 8, 4, 2], all_equal: [5, 5, 5, 5, 5], quick_mixed: [3, -6, 2, -7, 5, -8, 4, -1], nowrap_random: [8, 1, 7, 9, 2, 10, 3],
+    radix_1: [8762, 654, 3008, 345, 87, 65, 234, 12, 2], radix_2: [5, 3, 8, 6, 2, 7, 4, 1], radix_3: [100, 20, 3000, 5, 50, 500, 0], radix_4: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+    tagged: [[3, "a"], [1, "b"], [3, "c"], [2, "d"], [1, "e"], [3, "f"]],
+  };
+  const range = (a, b) => { const r = []; for (let x = a; x < b; x++) r.push(x); return r; };
+  const deep = (x) => JSON.parse(JSON.stringify(x));
+  const mk = (values, kind) => values.map((v, i) => {
+    const key = Array.isArray(v) ? v[0] : v, tag = Array.isArray(v) ? v[1] : null;
+    if (kind === "array") return { id: i, key, tag, stale: false };
+    if (kind === "plain") return { id: i, key, tag };
+    return { id: i, key };
+  });
+  const ARRAY_ROLES = { cmp: [], min: null, final: [], sorted: [], hole: null, shifted: [], moved: [] };
+  function emitter(tpl, cnt) {
+    const events = [];
+    return { events, emit(k, line, p, state, vars, roles, res = null, move = null) {
+      const ev = { k, line, p, vars: Object.assign({}, vars), cnt: Object.assign({}, cnt), res, roles: Object.assign(deep(tpl), roles || {}), move };
+      Object.assign(ev, deep(state)); events.push(ev); } };
+  }
+
+  /* ---- Selection.py 5-11 ---- */
+  function traceSelection(values) {
+    const L = LINES.selection, data = mk(values, "array"), n = data.length;
+    const cnt = { comparisons: 0, swaps: 0, self_swaps: 0, writes: 0 }, T = emitter(ARRAY_ROLES, cnt);
+    const st = () => ({ slots: data, held: null }), V = (o) => Object.assign({ n, i: null, j: null, min_idx: null }, o);
+    T.emit("start", L.def, -1, st(), V({}));
+    for (let i = 0; i < data.length; i++) {                                   // line 6
+      let min_idx = i;                                                        // line 7
+      const fin = range(0, i);
+      T.emit("iter_start", L.min_init, i, st(), V({ i, min_idx }), { min: min_idx, final: fin });
+      for (let j = i + 1; j < data.length; j++) {                             // line 8
+        cnt.comparisons += 1;
+        const res = data[j].key < data[min_idx].key;                          // line 9
+        T.emit("compare", L.compare, i, st(), V({ i, j, min_idx }), { cmp: [j, min_idx], min: min_idx, final: fin }, res);
+        if (res) { min_idx = j; T.emit("min_update", L.min_update, i, st(), V({ i, j, min_idx }), { min: min_idx, final: fin }); }   // line 10
+      }
+      const tmp = data[i]; data[i] = data[min_idx]; data[min_idx] = tmp;    // line 11 — unconditional
+      cnt.swaps += 1; cnt.writes += 2; if (min_idx === i) cnt.self_swaps += 1;
+      T.emit("swap", L.swap, i, st(), V({ i, min_idx }), { final: fin.concat([i]), moved: min_idx !== i ? [i, min_idx] : [i] }, null, { type: "swap", a: i, b: min_idx });
+      T.emit("iter_end", L.for_i, i, st(), V({ i, min_idx }), { final: range(0, i + 1) });
+    }
+    T.emit("done", L.for_i, n, st(), V({}), { final: range(0, n) });
+    return T.events;
+  }
+
+  /* ---- Bubble.py 18-23 (plain) / 4-15 (commented early-exit) ---- */
+  function traceBubble(values, early) {
+    const L = LINES[early ? "bubble_early" : "bubble"], data = mk(values, "array");
+    const cnt = { comparisons: 0, swaps: 0, writes: 0 }, T = emitter(ARRAY_ROLES, cnt);
+    const st = () => ({ slots: data, held: null });
+    const n = data.length;                                                    // line 19 / 5
+    const V = (o) => Object.assign(early ? { n, i: null, j: null, bound: null, swapped: null } : { n, i: null, j: null, bound: null }, o);
+    T.emit("start", L.n, -1, st(), V({}));
+    let fin = [];
+    for (let i = 0; i < n; i++) {                                             // line 20 / 6
+      const bound = n - i - 1;
+      let swapped = false;                                                    // line 7
+      let sv = early ? { swapped } : {};
+      T.emit("iter_start", early ? L.swapped : L.for_i, i, st(), V(Object.assign({ i, bound }, sv)), { final: fin.slice() });
+      for (let j = 0; j < n - i - 1; j++) {                                   // line 21 / 8
+        cnt.comparisons += 1;
+        const res = data[j].key > data[j + 1].key;                            // line 22 / 9
+        T.emit("compare", L.compare, i, st(), V(Object.assign({ i, j, bound }, sv)), { cmp: [j, j + 1], final: fin.slice() }, res);
+        if (res) {
+          const tmp = data[j]; data[j] = data[j + 1]; data[j + 1] = tmp;     // line 23 / 10
+          cnt.swaps += 1; cnt.writes += 2; swapped = true; sv = early ? { swapped } : {};
+          T.emit("swap", L.swap, i, st(), V(Object.assign({ i, j, bound }, sv)), { final: fin.slice(), moved: [j, j + 1] }, null, { type: "swap", a: j, b: j + 1 });
+        }
+      }
+      if (bound >= 0) fin = Array.from(new Set(fin.concat([bound]))).sort((a, b) => a - b);
+      T.emit("iter_end", early ? L.early_check : L.for_i, i, st(), V(Object.assign({ i, bound }, sv)), { final: fin.slice() });
+      if (early && !swapped) { fin = range(0, n); T.emit("early_exit", L.break, i, st(), V(Object.assign({ i, bound }, sv)), { final: fin.slice() }); break; }   // line 14-15
+    }
+    T.emit("done", L.for_i, n, st(), V({}), { final: range(0, n) });
+    return T.events;
+  }
+
+  /* ---- Insertion.py 4-11 ---- */
+  function traceInsertion(values) {
+    const L = LINES.insertion, data = mk(values, "array"), n = data.length;
+    const cnt = { comparisons: 0, shifts: 0, placements: 0, writes: 0 }, T = emitter(ARRAY_ROLES, cnt);
+    let held = null;
+    const st = () => ({ slots: data, held }), V = (o) => Object.assign({ n, index: null, key: null, j: null }, o);
+    T.emit("start", L.def, -1, st(), V({}), { sorted: n ? [0] : [] });
+    for (let index = 1; index < data.length; index++) {                       // line 5
+      const key = deep(data[index]); held = key;                              // line 6
+      let j = index - 1;                                                      // line 7
+      const prefix = range(0, index), kv = key.key;
+      T.emit("key_pickup", L.key, index, st(), V({ index, key: kv, j }), { sorted: prefix, hole: index }, null, { type: "pickup", from: index });
+      while (j >= 0) {                                                        // line 8 guard (not counted)
+        cnt.comparisons += 1;
+        const res = kv < data[j].key;                                         // line 8 key test
+        T.emit("compare", L.while, index, st(), V({ index, key: kv, j }), { cmp: [j], sorted: prefix, hole: j + 1, shifted: range(j + 2, index + 1) }, res);
+        if (!res) break;
+        data[j + 1] = deep(data[j]); data[j + 1].stale = false; data[j].stale = true;   // line 9
+        cnt.shifts += 1; cnt.writes += 1;
+        j -= 1;                                                               // line 10
+        T.emit("shift", L.shift, index, st(), V({ index, key: kv, j }), { sorted: prefix, hole: j + 1, shifted: range(j + 2, index + 1), moved: [j + 2] }, null, { type: "shift", from: j + 1, to: j + 2 });
+      }
+      data[j + 1] = deep(key); data[j + 1].stale = false;                     // line 11 — unconditional
+      cnt.placements += 1; cnt.writes += 1; held = null;
+      T.emit("place", L.place, index, st(), V({ index, key: kv, j, moved: j + 1 !== index }), { sorted: prefix, moved: [j + 1] }, null, { type: "place", to: j + 1 });
+      T.emit("iter_end", L.for_index, index, st(), V({ index, key: kv, j }), { sorted: range(0, index + 1) });
+    }
+    T.emit("done", L.for_index, n, st(), V({}), { final: range(0, n) });
+    return T.events;
+  }
+
+  /* ---- MergeSort.py 5-27 (strict <) ---- */
+  function traceMerge(values) {
+    const L = LINES.merge, items = mk(values, "plain"), nodes = [];
+    const cnt = { comparisons: 0, writes: 0, max_depth: 0, aux_live: 0, aux_peak: 0 };
+    const T = emitter({ left: null, right: null, out: null, took: null, merged_upto: null }, cnt);
+    let depth = 0, cur = 0;
+    const st = () => ({ nodes, cur, depth });
+    const newNode = (parent, start, vals, d) => { const nd = { id: nodes.length, parent, start, len: vals.length, depth: d, vals: deep(vals), state: "pending" }; nodes.push(nd); return nd; };
+    const rootNode = newNode(null, 0, items, 0);
+    T.emit("start", L.def, 0, st(), { n: items.length });
+    function mergeSort(nd) {
+      depth += 1; cnt.max_depth = Math.max(cnt.max_depth, depth); cur = nd.id; nd.state = "active";
+      const n = nd.len;                                                       // line 7
+      T.emit("call", L.n, nd.depth, st(), { n, mid: null, i: null, j: null });
+      if (n < 2) { depth -= 1; nd.state = "sorted"; T.emit("base", L.base, nd.depth, st(), { n, mid: null, i: null, j: null }); return; }   // lines 8-9
+      const mid = Math.floor(n / 2);                                          // line 10
+      const S1 = newNode(nd.id, nd.start, nd.vals.slice(0, mid), nd.depth + 1);          // line 11
+      const S2 = newNode(nd.id, nd.start + mid, nd.vals.slice(mid, n), nd.depth + 1);    // line 12
+      cnt.aux_live += n; cnt.aux_peak = Math.max(cnt.aux_peak, cnt.aux_live); nd.state = "split";
+      T.emit("split", L.s2, nd.depth, st(), { n, mid, i: null, j: null });
+      mergeSort(S1); mergeSort(S2);                                           // lines 13-14
+      cur = nd.id; nd.state = "merging";                                      // line 15
+      let i = 0, j = 0;                                                       // line 20
+      T.emit("merge_start", L.ij, nd.depth, st(), { n, mid, i, j }, { left: 0, right: 0, out: 0, merged_upto: 0 });
+      const A = S1.vals, B = S2.vals, S = nd.vals;
+      while (i + j < S.length) {                                              // line 21
+        let reason, takeLeft;
+        if (j === B.length) { reason = "right_exhausted"; takeLeft = true; }
+        else if (i < A.length) {
+          cnt.comparisons += 1;
+          const res = A[i].key < B[j].key;                                    // line 22: S1[i] < S2[j]  (STRICT)
+          T.emit("compare", L.cond, nd.depth, st(), { n, mid, i, j }, { left: i, right: j, out: i + j, merged_upto: i + j }, res);
+          reason = "compare"; takeLeft = res;
+        } else { reason = "left_exhausted"; takeLeft = false; }
+        if (takeLeft) {
+          S[i + j] = deep(A[i]); cnt.writes += 1; const src = { node: S1.id, idx: i }; i += 1;          // lines 23-24
+          T.emit("take", L.take_left, nd.depth, st(), { n, mid, i, j, reason }, { left: i < A.length ? i : null, right: j < B.length ? j : null, out: i + j - 1, took: "left", merged_upto: i + j }, null, { type: "take", from: src, to: { node: nd.id, idx: i + j - 1 } });
+        } else {
+          S[i + j] = deep(B[j]); cnt.writes += 1; const src = { node: S2.id, idx: j }; j += 1;          // lines 26-27
+          T.emit("take", L.take_right, nd.depth, st(), { n, mid, i, j, reason }, { left: i < A.length ? i : null, right: j < B.length ? j : null, out: i + j - 1, took: "right", merged_upto: i + j }, null, { type: "take", from: src, to: { node: nd.id, idx: i + j - 1 } });
+        }
+      }
+      depth -= 1; nd.state = "sorted"; S1.state = S2.state = "released"; cnt.aux_live -= n;
+      T.emit("merged", L.merge_call, nd.depth, st(), { n, mid, i, j }, { merged_upto: n });
+    }
+    mergeSort(rootNode);
+    cur = 0;
+    T.emit("done", L.merge_call, 0, st(), { n: items.length });
+    return T.events;
+  }
+
+  /* ---- QuickSort.py 16-71 / QuickSort_NoWrap.py 4-35 ---- */
+  function traceQuick(values, nowrap) {
+    const algo = nowrap ? "quick_nowrap" : "quick", L = LINES[algo], data = mk(values, "plain"), n = data.length;
+    const stack = [], final = new Set();
+    const cnt = { comparisons: 0, m3_comparisons: 0, swaps: 0, self_swaps: 0, max_depth: 0 };
+    const T = emitter({ range: null, cmp: [], le: [], ge: [], final: [], moved: [], mid: null }, cnt);
+    let pivotBox = null;
+    const st = () => ({ slots: data, stack, depth: stack.length, pivot: pivotBox });
+    const V = (o) => Object.assign({ n, first: null, last: null, left: null, right: null, mid: null, pivot: null }, o);
+    const fin = () => Array.from(final).sort((a, b) => a - b);
+    const roles = (first, last, left, right, extra) => { const r = { range: [first, last], final: fin() }; if (left != null && right != null) { r.le = range(first, left); r.ge = range(right + 1, last + 1); } return Object.assign(r, extra || {}); };
+    const swap = (a, b) => { const t = data[a]; data[a] = data[b]; data[b] = t; cnt.swaps += 1; if (a === b) cnt.self_swaps += 1; };
+    T.emit("start", nowrap ? L.last_default : L.call0, 0, st(), V({}));
+    function inner(first, last) {
+      stack.push({ first, last }); cnt.max_depth = Math.max(cnt.max_depth, stack.length);
+      T.emit("call", nowrap ? L.def : L.inner_def, stack.length, st(), V({ first, last }), roles(first, last));
+      if (first >= last) { if (first === last) final.add(first); stack.pop(); T.emit("base", L.return, stack.length + 1, st(), V({ first, last }), roles(first, last)); return; }   // 25-26 / 8-9
+      let left = first, right = last;                                         // 28-29 / 11
+      const mid = Math.floor((left + right) / 2);                             // 32 / 12
+      T.emit("mid", L.mid, stack.length, st(), V({ first, last, left, right, mid }), roles(first, last, null, null, { mid }));
+      for (const [a, b, lc, ls] of [[left, right, "m3c1", "m3s1"], [left, mid, "m3c2", "m3s2"], [mid, right, "m3c3", "m3s3"]]) {
+        cnt.comparisons += 1; cnt.m3_comparisons += 1;
+        const res = data[a].key > data[b].key;                                // 35/37/39
+        T.emit("m3_compare", L[lc], stack.length, st(), V({ first, last, left, right, mid }), roles(first, last, null, null, { mid, cmp: [a, b] }), res);
+        if (res) { swap(a, b); T.emit("m3_swap", L[ls], stack.length, st(), V({ first, last, left, right, mid }), roles(first, last, null, null, { mid, moved: [a, b] }), null, { type: "swap", a, b }); }
+      }
+      const pivot = data[mid].key; pivotBox = deep(data[mid]);               // 43 / 20 — a VALUE
+      T.emit("pivot", L.pivot, stack.length, st(), V({ first, last, left, right, mid, pivot }), roles(first, last, null, null, { mid }));
+      left += 1; right -= 1;                                                  // 46-47 / 21-22
+      T.emit("narrow", L.narrow, stack.length, st(), V({ first, last, left, right, mid, pivot }), roles(first, last, left, right));
+      while (left <= right) {                                                 // 49 / 24
+        while (true) {                                                        // 51 / 25
+          if (nowrap && !(left <= right)) { T.emit("scan_stop", L.scan_l, stack.length, st(), V({ first, last, left, right, mid, pivot, side: "left" }), roles(first, last, left, right)); break; }
+          cnt.comparisons += 1;
+          const res = data[left].key < pivot;
+          T.emit("scan_compare", L.scan_l, stack.length, st(), V({ first, last, left, right, mid, pivot, side: "left" }), roles(first, last, left, right, { cmp: [left] }), res);
+          if (!res) break;
+          left += 1;                                                          // 52 / 26
+          T.emit("advance", L.adv_l, stack.length, st(), V({ first, last, left, right, mid, pivot, side: "left" }), roles(first, last, left, right));
+        }
+        while (true) {                                                        // 54 / 27
+          if (nowrap && !(left <= right)) { T.emit("scan_stop", L.scan_r, stack.length, st(), V({ first, last, left, right, mid, pivot, side: "right" }), roles(first, last, left, right)); break; }
+          cnt.comparisons += 1;
+          const res = data[right].key > pivot;
+          T.emit("scan_compare", L.scan_r, stack.length, st(), V({ first, last, left, right, mid, pivot, side: "right" }), roles(first, last, left, right, { cmp: [right] }), res);
+          if (!res) break;
+          right -= 1;                                                         // 55 / 28
+          T.emit("advance", L.adv_r, stack.length, st(), V({ first, last, left, right, mid, pivot, side: "right" }), roles(first, last, left, right));
+        }
+        if (left <= right) {                                                  // 61 / 29
+          swap(left, right); const a = left, b = right;                       // 63 / 30
+          left += 1; right -= 1;                                              // 65-66 / 31-32
+          T.emit("swap", L.swap, stack.length, st(), V({ first, last, left, right, mid, pivot }), roles(first, last, left, right, { moved: a !== b ? [a, b] : [a] }), null, { type: "swap", a, b });
+        } else {
+          T.emit("crossed", L.check, stack.length, st(), V({ first, last, left, right, mid, pivot }), roles(first, last, left, right));
+        }
+      }
+      if (left - right === 2) final.add(right + 1);
+      pivotBox = null;
+      T.emit("partition_done", L.outer, stack.length, st(), V({ first, last, left, right, mid, pivot }), roles(first, last, left, right));
+      inner(first, right);                                                    // 68 / 34
+      inner(left, last);                                                      // 69 / 35
+      stack.pop();
+      T.emit("return", L.rec2, stack.length + 1, st(), V({ first, last, left, right }), roles(first, last));
+    }
+    inner(0, data.length - 1);                                                // 71 / 4-6
+    for (let i = 0; i < n; i++) final.add(i);
+    T.emit("done", nowrap ? L.def : L.call0, 0, st(), V({}), { final: fin() });
+    return T.events;
+  }
+
+  /* ---- Radix_sort_Alg.py 1-68 ---- */
+  function getLength(value) { if (value === 0) return 1; let d = 0; while (value !== 0) { d += 1; value = Math.floor(value / 10); } return d; }   // lines 29-45
+  function traceRadix(values) {
+    const L = LINES.radix, arr = mk(values, "radix"), n = arr.length, buckets = Array.from({ length: 10 }, () => []);
+    const cnt = { comparisons: 0, passes: 0, digit_ops: 0, writes: 0 };
+    const T = emitter({ cmp: null, taken: [], written: [], bucket: null, collected: 0 }, cnt);
+    const st = () => ({ slots: arr, buckets });
+    const V = (o) => Object.assign({ n, max_digits: null, digit_index: null, pow10: null, num: null, bucket_index: null, array_index: null }, o);
+    T.emit("start", L.def, -1, st(), V({}));
+    const digit_counts = arr.map((s) => getLength(Math.abs(s.key)));
+    const max_digits = digit_counts.length ? Math.max(...digit_counts) : 0;  // line 47
+    let pow10 = 1;                                                            // line 48
+    T.emit("max_digits", L.max_digits, -1, st(), V({ max_digits, pow10, digit_counts }));
+    for (let digit_index = 0; digit_index < max_digits; digit_index++) {      // line 51
+      buckets.forEach((b) => { b.length = 0; });                              // line 52
+      cnt.passes += 1;
+      T.emit("pass_start", L.buckets, digit_index, st(), V({ max_digits, digit_index, pow10 }));
+      const taken = [];
+      for (let idx = 0; idx < arr.length; idx++) {                            // line 55
+        const num = arr[idx].key;
+        const bucket_index = Math.floor(Math.abs(num) / pow10) % 10;          // line 56
+        cnt.digit_ops += 1;
+        T.emit("digit", L.digit, digit_index, st(), V({ max_digits, digit_index, pow10, num, bucket_index, i: idx }), { cmp: idx, taken: taken.slice(), bucket: bucket_index });
+        buckets[bucket_index].push(deep(arr[idx]));                           // line 57
+        taken.push(idx);
+        T.emit("append", L.append, digit_index, st(), V({ max_digits, digit_index, pow10, num, bucket_index, i: idx }), { taken: taken.slice(), bucket: bucket_index }, null, { type: "to_bucket", from: idx, bucket: bucket_index, pos: buckets[bucket_index].length - 1 });
+      }
+      let array_index = 0;                                                    // line 60
+      T.emit("collect_start", L.collect, digit_index, st(), V({ max_digits, digit_index, pow10, array_index }), { taken: taken.slice(), collected: 0 });
+      const written = [];
+      for (let b_i = 0; b_i < 10; b_i++) {                                    // line 61
+        for (let p_i = 0; p_i < buckets[b_i].length; p_i++) {                 // line 62
+          const s = buckets[b_i][p_i];
+          arr[array_index] = deep(s); cnt.writes += 1; written.push(array_index); array_index += 1;   // lines 63-64
+          T.emit("write", L.write, digit_index, st(), V({ max_digits, digit_index, pow10, num: s.key, bucket_index: b_i, array_index }), { taken: taken.slice(), written: written.slice(), bucket: b_i, collected: array_index }, null, { type: "from_bucket", bucket: b_i, pos: p_i, to: array_index - 1 });
+        }
+      }
+      pow10 *= 10;                                                            // line 66
+      T.emit("pass_end", L.pow10_mul, digit_index, st(), V({ max_digits, digit_index, pow10 }), { written: written.slice(), collected: array_index });
+    }
+    T.emit("done", L.return, max_digits, st(), V({ max_digits, pow10 }));
+    return T.events;
+  }
+
+  function trace(algo, values) {
+    switch (algo) {
+      case "selection": return traceSelection(values);
+      case "bubble": return traceBubble(values, false);
+      case "bubble_early": return traceBubble(values, true);
+      case "insertion": return traceInsertion(values);
+      case "merge": return traceMerge(values);
+      case "quick": return traceQuick(values, false);
+      case "quick_nowrap": return traceQuick(values, true);
+      case "radix": return traceRadix(values);
+    }
+    throw new Error("unknown algorithm " + algo);
+  }
+  function parseInput(text) {
+    if (PRESETS[text]) return PRESETS[text].slice();
+    const vals = [];
+    for (let tok of text.split(",")) {
+      tok = tok.trim(); if (!tok) continue;
+      let i = 0, num = "";
+      while (i < tok.length && /[0-9\-+.]/.test(tok[i])) { num += tok[i]; i++; }
+      const tag = tok.slice(i).trim() || null;
+      const val = num.includes(".") ? parseFloat(num) : parseInt(num, 10);
+      if (Number.isNaN(val)) throw new Error("cannot read \"" + tok + "\"");
+      vals.push(tag ? [val, tag] : val);
+    }
+    return vals;
+  }
+  function seededRandom(seed, n, lo = -20, hi = 99) {   // mulberry32 (not Python's random)
+    let a = (seed >>> 0) || 1;
+    const rnd = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const out = []; for (let i = 0; i < n; i++) out.push(lo + Math.floor(rnd() * (hi - lo + 1))); return out;
+  }
+  const api = { LINES, CANON, PRESETS, trace, parseInput, seededRandom, getLength };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  root.LectureTrace = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+</script>
+
+<script id="source-lines" type="application/json">{"selection": {"file": "Selection.py", "first": 5, "lines": ["def selection_sort(data):", "    for i in range(len(data)):", "        min_idx = i", "        for j in range(i + 1, len(data)):", "            if data[j] < data[min_idx]:", "                min_idx = j", "        data[i], data[min_idx] = data[min_idx], data[i]"]}, "bubble": {"file": "Bubble.py", "first": 18, "lines": ["def bubble_sort(data):", "    n = len(data)", "    for i in range(n):", "        for j in range(0, n-i-1):", "            if data[j] > data[j+1]:", "                data[j], data[j+1] = data[j+1], data[j]"]}, "bubble_early": {"file": "Bubble.py", "first": 4, "lines": ["# def bubble_sort(data):", "#     n = len(data)", "#     for i in range(n):", "#         swapped = False", "#         for j in range(0, n - i - 1):", "#             if data[j] > data[j + 1]:", "#                 data[j], data[j + 1] = data[j + 1], data[j]", "#                 swapped = True", "#", "#         # If no two elements were swapped by inner loop, the list is sorted", "#         if not swapped:", "#             break"]}, "insertion": {"file": "Insertion.py", "first": 4, "lines": ["def insertion_sort(data):", "    for index in range(1, len(data)):", "        key = data[index]", "        j = index - 1", "        while j >= 0 and key < data[j]:", "            data[j + 1] = data[j]", "            j -= 1", "        data[j + 1] = key"]}, "merge": {"file": "MergeSort.py", "first": 5, "lines": ["def mergeSort(S):", "    \"\"\"Sort the elements of Python list S using the merge sort algorithm.\"\"\"", "    n = len(S)", "    if n < 2:", "        return", "    mid = n // 2", "    S1 = S[0:mid]", "    S2 = S[mid:n]", "    mergeSort(S1)", "    mergeSort(S2)", "    merge(S1, S2, S)", "", "", "def merge(S1, S2, S):", "    \"\"\"Merge two sorted Python Lists S1 and S2 into properly sized list S.\"\"\"", "    i = j = 0", "    while i + j < len(S):", "        if j == len(S2) or (i < len(S1) and S1[i] < S2[j]):", "            S[i + j] = S1[i]", "            i = i + 1", "        else:", "            S[i + j] = S2[j]", "            j = j + 1"]}, "quick": {"file": "QuickSort.py", "first": 16, "lines": ["def quicksort(data: List[T]) -> None:", "    \"\"\"", "    Sorts a list in-place using the quicksort algorithm.", "", "    :param data: List of comparable elements (e.g., integers or floats)", "    \"\"\"", "", "    def quicksort_inner(first: int, last: int) -> None:", "        # Base case: if sublist has zero or one element, it's already sorted", "        if first >= last:", "            return", "", "        left = first", "        right = last", "", "        # Use median-of-three to choose a better pivot (avoids worst-case)", "        mid = (left + right) // 2", "", "        # Order first, middle, and last elements", "        if data[left] > data[right]:", "            data[left], data[right] = data[right], data[left]", "        if data[left] > data[mid]:", "            data[left], data[mid] = data[mid], data[left]", "        if data[mid] > data[right]:", "            data[mid], data[right] = data[right], data[mid]", "", "        # Pick the pivot (guaranteed to be near the median)", "        pivot = data[mid]", "", "        # Narrow bounds to avoid re-checking the outer elements", "        left += 1", "        right -= 1", "", "        while left <= right:", "            # Move left index forward if element is already on correct side (less than pivot)", "            while data[left] < pivot:", "                left += 1", "            # Move right index backward if element is already on correct side (greater than pivot)", "            while data[right] > pivot:", "                right -= 1", "", "            #  Even though we're in a `while left <= right` loop,", "            # it's possible that `left` or `right` moved during the inner while loops", "            # and now `left > right`. So we must check again before swapping.", "", "            if left <= right:", "                # Swap values that are out of place: left is too big, right is too small", "                data[left], data[right] = data[right], data[left]", "                # Move both pointers inward after swapping", "                left += 1", "                right -= 1", "        # Recursively sort left and right halves", "        quicksort_inner(first, right)", "        quicksort_inner(left, last)", "", "    quicksort_inner(0, len(data) - 1)"]}, "quick_nowrap": {"file": "QuickSort_NoWrap.py", "first": 4, "lines": ["def quicksort(data: List[int], first: int = 0, last: int = None) -> None:", "    if last is None:", "        last = len(data) - 1", "", "    if first >= last:", "        return", "", "    left, right = first, last", "    midpoint = (right - left) // 2 + left", "    if data[left] > data[right]:", "        data[left], data[right] = data[right], data[left]", "    if data[left] > data[midpoint]:", "        data[left], data[midpoint] = data[midpoint], data[left]", "    if data[midpoint] > data[right]:", "        data[midpoint], data[right] = data[right], data[midpoint]", "", "    pivot = data[midpoint]", "    left += 1", "    right -= 1", "", "    while left <= right:", "        while left <= right and data[left] < pivot:", "            left += 1", "        while left <= right and data[right] > pivot:", "            right -= 1", "        if left <= right:", "            data[left], data[right] = data[right], data[left]", "            left += 1", "            right -= 1", "", "    quicksort(data, first, right)", "    quicksort(data, left, last)"]}, "radix": {"file": "Radix_sort_Alg.py", "first": 1, "lines": ["def radix_sort(array):", "    \"\"\"", "    Sorts an array of non-negative integers using Radix Sort algorithm.", "", "    Parameters:", "    array (list): List of non-negative integers to be sorted.", "", "    Returns:", "    list: Sorted list of integers.", "    \"\"\"", "", "    def get_max_length(array):", "        \"\"\"", "        Finds the maximum length (number of digits) among all elements in the array.", "", "        Parameters:", "        array (list): List of integers.", "", "        Returns:", "        int: Maximum number of digits in the largest number.", "        \"\"\"", "        _max_digits = 0", "        for _num in array:", "            digit_count = get_length(abs(_num))  # Handle negative numbers", "            if digit_count > _max_digits:", "                _max_digits = digit_count", "        return _max_digits", "", "    def get_length(value):", "        \"\"\"", "        Returns the number of digits in a given value.", "", "        Parameters:", "        value (int): The number whose digits are to be counted.", "", "        Returns:", "        int: Number of digits in the value.", "        \"\"\"", "        if value == 0:", "            return 1", "        digits = 0", "        while value != 0:", "            digits += 1", "            value //= 10  # Integer division to reduce the number", "        return digits", "", "    max_digits = get_max_length(array)", "    pow10 = 1  # Initialize power of 10 for digit place", "", "    # Iterate over each digit place", "    for digit_index in range(max_digits):", "        buckets = [[] for _ in range(10)]  # Create array of 10 buckets for each digit (0-9)", "", "        # Distribute elements into corresponding buckets based on current digit", "        for num in array:", "            bucket_index = abs(num) // pow10 % 10  # Determine the bucket for current digit", "            buckets[bucket_index].append(num)", "", "        # Copy elements from buckets back to the original array", "        array_index = 0", "        for bucket in buckets:", "            for num in bucket:", "                array[array_index] = num", "                array_index += 1", "", "        pow10 *= 10  # Move to the next significant digit", "", "    return array"]}}</script>
+
+<script id="ui">
+(function () {
+  "use strict";
+  const E = window.LectureTrace;
+  const $ = (id) => document.getElementById(id);
+  const SRC = JSON.parse($("source-lines").textContent);
+  const FAMILY = { selection: "array", bubble: "array", bubble_early: "array", insertion: "array", merge: "tree", quick: "array", quick_nowrap: "array", radix: "bucket" };
+  const FN = { selection: "selection_sort(data)", bubble: "bubble_sort(data)", bubble_early: "bubble_sort(data)  — early-exit version", insertion: "insertion_sort(data)",
+    merge: "mergeSort(S) / merge(S1, S2, S)", quick: "quicksort(data) → quicksort_inner(first, last)", quick_nowrap: "quicksort(data, first, last)", radix: "radix_sort(array)" };
+  const FILE = { selection: "Selection.py", bubble: "Bubble.py", bubble_early: "Bubble.py", insertion: "Insertion.py", merge: "MergeSort.py", quick: "QuickSort.py", quick_nowrap: "QuickSort_NoWrap.py", radix: "Radix_sort_Alg.py" };
+  const LBL = { canonical: "canonical [64, 34, 25, 12, 22, 11, 90]", ascending: "already sorted [1, 2, 3, 4, 5]", descending: "reverse sorted [5, 4, 3, 2, 1]",
+    insertion_q: "Insertion test_q [6, 3, 5, 7, 2, 4]", merge_unsorted: "MergeSort test [4, 2, 5, 1, 3]", merge_unsorted2: "MergeSort test [8, 2, 57, 91, 22]",
+    merge_dups: "MergeSort duplicates [4, 2, 5, 2, 3]", negatives: "negatives [−3, −1, −2, −4, 0]", quick_unsorted: "QuickSort test [3, 6, 2, 7, 5, 8, 4, 1]",
+    quick_unsorted2: "QuickSort test [8, 2, 91, 22, 55, 1, 7, 6]", quick_unsorted3: "QuickSort test [9, 4, 3, 10, 8, 2, 7]", quick_dups: "duplicates [3, 6, 2, 7, 2, 8, 4, 2]",
+    all_equal: "all equal [5, 5, 5, 5, 5]", quick_mixed: "mixed signs [3, −6, 2, −7, 5, −8, 4, −1]", nowrap_random: "NoWrap test [8, 1, 7, 9, 2, 10, 3]",
+    radix_1: "radix test 1 [8762, 654, 3008, 345, 87, 65, 234, 12, 2]", radix_2: "radix test 2 [5, 3, 8, 6, 2, 7, 4, 1]", radix_3: "radix test 3 [100, 20, 3000, 5, 50, 500, 0]",
+    radix_4: "radix test 4 [9, 8, … , 1, 0]", tagged: "stability records (3a 1b 3c 2d 1e 3f)", custom: "custom list…", random: "seeded random…" };
+  const INPUTS = {
+    array3: ["canonical", "ascending", "descending", "insertion_q", "merge_dups", "all_equal", "tagged", "custom", "random"],
+    merge: ["canonical", "merge_unsorted", "merge_unsorted2", "merge_dups", "negatives", "ascending", "descending", "tagged", "custom", "random"],
+    quick: ["canonical", "quick_unsorted", "quick_unsorted2", "quick_unsorted3", "quick_dups", "all_equal", "quick_mixed", "nowrap_random", "ascending", "descending", "tagged", "custom", "random"],
+    radix: ["radix_1", "radix_2", "radix_3", "radix_4", "canonical", "custom", "random"],
+  };
+  const inputsFor = (a) => a === "merge" ? INPUTS.merge : a.startsWith("quick") ? INPUTS.quick : a === "radix" ? INPUTS.radix : INPUTS.array3;
+  const NOTES = {
+    selection: `<p><b>Selection.py</b> swaps on <em>every</em> pass — line 11 has no <code>if min_idx != i</code> guard — so a pass whose minimum is already in place performs a self-swap (two writes that change nothing). Comparisons are always n(n−1)/2 whatever the input. Unstable: the long-distance swap can carry an element past an equal key.</p>`,
+    bubble: `<p><b>Bubble.py</b>'s active version (lines 18–23) has no early exit: n(n−1)/2 comparisons on every input, even one that is already sorted. Tick the toggle to trace the commented-out version (lines 4–15), which breaks after a clean pass — Θ(n) best case. Stable: strict <code>&gt;</code> never swaps equal keys.</p>`,
+    bubble_early: `<p>This is the <b>commented-out</b> version in Bubble.py (lines 4–15): a pass with no swaps proves the list sorted, so it breaks — n−1 comparisons on sorted input. The worst case is unchanged. Stable: strict <code>&gt;</code> never swaps equal keys.</p>`,
+    insertion: `<p><b>Insertion.py</b> uses the classic short-circuit guard <code>while j &gt;= 0 and key &lt; data[j]</code>: the index test is not a key comparison and is never counted. Line 11 always writes <code>key</code> back — even when it never moved — so there are exactly n−1 placements. Θ(n) best case, Θ(n²) worst case. Stable: strict <code>&lt;</code> stops at an equal key.</p>`,
+    merge: `<p><b>MergeSort.py</b> is the Goodrich-style out-of-place version: <code>S1 = S[0:mid]</code> and <code>S2 = S[mid:n]</code> are real copies (the aux-space counter shows how many elements are alive), and <code>merge</code> writes the result back into <code>S</code>. Θ(n log n) comparisons on every input.</p><p><b>Watch the tie rule:</b> line 22 compares with strict <code>S1[i] &lt; S2[j]</code>, so when the two heads are equal the <em>right</em> half wins. On the stability records this reverses every tie group — this code is <em>not</em> stable as written; <code>&lt;=</code> would make it stable.</p>`,
+    quick: `<p><b>QuickSort.py</b>: median-of-three by sorting <code>data[first]</code>, <code>data[mid]</code>, <code>data[last]</code> in place (3 comparisons, up to 3 swaps), then a two-pointer partition around the pivot <em>value</em>. The scans <code>while data[left] &lt; pivot</code> / <code>while data[right] &gt; pivot</code> have no bounds check — the ordered end elements act as sentinels. Elements equal to the pivot stop both scans and get swapped, which keeps the split balanced on all-equal input. In place, O(log n) expected stack depth; not stable.</p>`,
+    quick_nowrap: `<p><b>QuickSort_NoWrap.py</b> is the same algorithm with <code>left &lt;= right and …</code> guarding each scan, so a scan can stop on an index test without a key comparison (shown as “scan stops” events, not counted). Same swaps, sometimes fewer comparisons than QuickSort.py.</p>`,
+    radix: `<p><b>Radix_sort_Alg.py</b> is LSD radix sort with ten buckets: one pass per digit of the longest number, each pass reading one digit of every element (<code>abs(num) // pow10 % 10</code>) and copying the buckets back in order. <em>No key comparisons at all</em> — cost is Θ(d · n) digit extractions and writes. Stable within each pass because buckets keep arrival order, which is exactly why LSD works. The <code>abs()</code> means negative numbers are ordered by magnitude, so the function's contract is non-negative integers.</p>`,
+  };
+
+  const state = { algo: "selection", early: false, nowrap: false, inputName: "canonical", values: E.PRESETS.canonical.slice(),
+    predict: false, speed: 1, events: [], idx: 0, playing: false, timer: null, pending: -1, ghosts: [], ghostTimer: null,
+    tile: 80, gap: 10, offset: 0, slotEls: [], heldEl: null, tree: null, bucket: null };
+  const key = () => state.algo === "bubble" ? (state.early ? "bubble_early" : "bubble") : state.algo === "quick" ? (state.nowrap ? "quick_nowrap" : "quick") : state.algo;
+
+  /* ------------------------------------------------------------------ */
+  const fmt = (s) => s == null ? "?" : (s.tag != null ? `(${s.key}, "${s.tag}")` : String(s.key));
+  const short = (s) => s == null ? "?" : (s.tag != null ? `${s.key}${s.tag}` : String(s.key));
+  const tf = (b) => b ? "True" : "False";
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const listOf = (slots) => "[" + slots.map(short).join(", ") + "]";
+
+  /* ------------------------------------------------------------------ */
+  /* annotation                                                          */
+  /* ------------------------------------------------------------------ */
+  function annotate(events, algo) {
+    const n0 = events[0].slots ? events[0].slots.length : events[0].nodes[0].len;
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i], prev = events[i - 1] || null, v = ev.vars, c = ev.cnt, S = ev.slots;
+      let text = "", inv = "", stab = "";
+      if (algo === "selection") {
+        switch (ev.k) {
+          case "start": text = n0 === 0 ? "Empty list: range(len(data)) is empty — nothing happens." : `selection_sort on ${listOf(S)}. Each pass finds the minimum of the unsorted part and swaps it to position i — always, even if it is already there.`; break;
+          case "iter_start": text = `i = ${v.i}: assume data[${v.i}] = ${fmt(S[v.i])} is the minimum (min_idx = ${v.i}).` + (v.i + 1 < n0 ? ` Scan j = ${v.i + 1} … ${n0 - 1}.` : ` range(${v.i + 1}, ${n0}) is empty: no comparisons in the last pass.`); break;
+          case "compare": text = `data[j] = data[${v.j}] = ${fmt(S[v.j])}  <  data[min_idx] = data[${v.min_idx}] = ${fmt(S[v.min_idx])} ?  → ${tf(ev.res)}. ` + (ev.res ? "New minimum." : `Not smaller (strict <): min_idx stays ${v.min_idx}.`);
+            if (S[v.j].tag != null && S[v.j].key === S[v.min_idx].key) stab = `Equal keys ${short(S[v.j])} and ${short(S[v.min_idx])}: strict < is False, the earlier one stays the minimum.`; break;
+          case "min_update": text = `min_idx = ${v.j}: data[${v.j}] = ${fmt(S[v.j])} is the smallest seen so far. (A marker, not a write.)`; break;
+          case "swap": { const a = prev.slots[v.i], b = prev.slots[v.min_idx];
+            text = v.min_idx === v.i ? `min_idx == i == ${v.i}: line 11 still runs — a self-swap of data[${v.i}] with itself (two writes, nothing changes). data[${v.i}] = ${fmt(S[v.i])} is final.`
+              : `Swap data[${v.i}] ↔ data[${v.min_idx}]  (${short(a)} ↔ ${short(b)}): two array writes. data[${v.i}] = ${fmt(S[v.i])} is final.`;
+            const jumped = []; for (let p = v.i + 1; p < v.min_idx; p++) if (prev.slots[p].key === a.key) jumped.push(prev.slots[p]);
+            if (jumped.length && a.tag != null) stab = `Stability broken: ${short(a)} jumped from index ${v.i} to ${v.min_idx}, landing AFTER its equal ${jumped.map(short).join(", ")}.`; break; }
+          case "iter_end": text = `Pass i = ${v.i} done: data[0..${v.i}] = ${listOf(S.slice(0, v.i + 1))} is final.`; break;
+          case "done": text = `Finished: ${listOf(S)}. ${c.comparisons} comparisons (= n(n−1)/2 on every input), ${plural(c.swaps, "swap")} of which ${c.self_swaps} self-swap${c.self_swaps === 1 ? "" : "s"} — ${c.writes} writes.`; break;
+        }
+        const fi = ev.roles.final.length;
+        inv = fi ? `<b>Invariant:</b> data[0..${fi - 1}] holds the ${fi} smallest values, sorted and final` + (v.min_idx != null && ev.k !== "iter_end" && ev.k !== "done" ? `; data[min_idx] is the smallest of data[${v.i}..${v.j != null ? v.j : v.i}].` : ".") : `<b>Invariant:</b> data[0..i−1] holds the i smallest values, sorted and final (empty so far).`;
+      }
+      else if (algo === "bubble" || algo === "bubble_early") {
+        const early = algo === "bubble_early";
+        switch (ev.k) {
+          case "start": text = n0 === 0 ? "Empty list: n = 0 — no passes." : `bubble_sort on ${listOf(S)}${early ? " (early-exit version)" : ""}. Each pass compares neighbours left to right and swaps when data[j] > data[j+1].`; break;
+          case "iter_start": text = `Pass i = ${v.i}${early ? ": swapped = False" : ""}.` + (v.bound > 0 ? ` Compare j = 0 … ${v.bound - 1}  (range(0, n−i−1) = range(0, ${v.bound})).` : ` range(0, ${v.bound}) is empty: no comparisons.`); break;
+          case "compare": text = `data[${v.j}] = ${fmt(S[v.j])}  >  data[${v.j + 1}] = ${fmt(S[v.j + 1])} ?  → ${tf(ev.res)}. ` + (ev.res ? "Out of order — swap." : "In order — leave them.");
+            if (S[v.j].tag != null && S[v.j].key === S[v.j + 1].key) stab = `Equal keys ${short(S[v.j])} and ${short(S[v.j + 1])}: strict > is False, so they are never swapped — bubble sort is stable.`; break;
+          case "swap": text = `Swap data[${v.j}] ↔ data[${v.j + 1}]  (${short(prev.slots[v.j])} ↔ ${short(prev.slots[v.j + 1])}): two writes.${early ? " swapped = True." : ""}`; break;
+          case "iter_end": text = v.bound >= 0 ? `Pass ${v.i} complete: the largest of data[0..${v.bound}] has bubbled to index ${v.bound} — final.` : `Pass ${v.i} complete (nothing to compare).`;
+            if (early) text += v.swapped ? " swapped = True, so keep going." : " swapped = False — a clean pass proves the list sorted.";
+            else if (!v.swapped && prev && ev.cnt.swaps === (events.find((e, k) => k < i && e.k === "iter_start" && e.p === v.i) || {}).cnt.swaps) text += " (Nothing moved this pass — this version has no early exit, so it keeps going.)"; break;
+          case "early_exit": text = `not swapped → break. Everything is final after ${plural(v.i + 1, "pass")} and ${c.comparisons} comparisons.`; break;
+          case "done": text = `Finished: ${listOf(S)}. ${c.comparisons} comparisons, ${plural(c.swaps, "swap")} = ${c.writes} writes.` + (early ? "" : ` Without early exit this is always n(n−1)/2 = ${n0 * (n0 - 1) / 2} comparisons.`); break;
+        }
+        const fi = ev.roles.final.length;
+        inv = `<b>Invariant:</b> data[${n0 - fi}..${n0 - 1}] holds the ${fi} largest values in final position` + (v.j != null ? `; data[${v.j}] is the largest of data[0..${v.j}] before the compare.` : ".");
+      }
+      else if (algo === "insertion") {
+        const held = ev.held;
+        switch (ev.k) {
+          case "start": text = n0 <= 1 ? "range(1, len(data)) is empty — nothing to do." : `insertion_sort on ${listOf(S)}. data[0..0] is trivially sorted; each iteration inserts data[index] into the sorted prefix.`; break;
+          case "key_pickup": text = `index = ${v.index}: key = data[${v.index}] = ${fmt(held)} (a local variable, not a write); j = ${v.j}. Conceptually slot ${v.index} is a hole — the list still holds ${short(held)} there.`; break;
+          case "compare": text = `j = ${v.j} ≥ 0, so test key = ${fmt(held)}  <  data[${v.j}] = ${fmt(S[v.j])} ?  → ${tf(ev.res)}. ` + (ev.res ? `Shift data[${v.j}] right.` : `Not smaller: the while loop ends; key belongs at j+1 = ${v.j + 1}.`);
+            if (held.tag != null && held.key === S[v.j].key) stab = `Equal keys ${short(held)} and ${short(S[v.j])}: strict < is False, so key lands AFTER its equal — insertion sort is stable.`; break;
+          case "shift": text = `data[${v.j + 2}] = data[${v.j + 1}] = ${fmt(S[v.j + 2])}: one write (a shift). Slot ${v.j + 1} keeps a stale copy. j = ${v.j}.` + (v.j < 0 ? " j = −1: the guard j >= 0 fails (an index test, not a comparison)." : ""); break;
+          case "place": text = v.moved ? `data[${v.j + 1}] = key = ${fmt(S[v.j + 1])}: one write (placement).` : `data[${v.j + 1}] = key: the key never moved, but line 11 has no guard — it writes ${fmt(S[v.j + 1])} back into its own slot. Still one write.`; break;
+          case "iter_end": text = `data[0..${v.index}] = ${listOf(S.slice(0, v.index + 1))} is sorted relative to one another (these may still shift right later).`; break;
+          case "done": text = `Finished: ${listOf(S)}. ${c.comparisons} comparisons, ${plural(c.shifts, "shift")} + ${plural(c.placements, "placement")} = ${c.writes} writes.`; break;
+        }
+        const so = ev.roles.sorted.length;
+        inv = ev.k === "done" ? `<b>Invariant:</b> the sorted prefix has grown to the whole list.` : `<b>Invariant:</b> data[0..${Math.max(so - 1, 0)}] is sorted` + (held ? `; key = ${fmt(held)} is the original data[${v.index}]` : "") + (ev.roles.shifted.length ? `; data[${ev.roles.shifted[0]}..${v.index}] are shifted copies, all > key.` : ".");
+      }
+      else if (algo === "merge") {
+        const nd = ev.nodes[ev.cur], N = ev.nodes, kids = N.filter((x) => x.parent === ev.cur);
+        const A = kids[0], B = kids[1];
+        const nm = (x) => `S[${x.start}..${x.start + x.len - 1}]`;
+        switch (ev.k) {
+          case "start": text = n0 === 0 ? "Empty list: n < 2 — return." : `mergeSort on ${listOf(nd.vals)}. Split in half, sort each half recursively, then merge. Every split copies its halves (S1, S2 are new lists).`; break;
+          case "call": text = `mergeSort(${nm(nd)}) = mergeSort(${listOf(nd.vals)}), recursion depth ${ev.depth}. n = ${v.n}.`; break;
+          case "base": text = `n = ${v.n} < 2: ${listOf(nd.vals)} is already sorted — return.`; break;
+          case "split": text = `mid = ${v.mid}: S1 = S[0:${v.mid}] = ${listOf(A.vals)}, S2 = S[${v.mid}:${v.n}] = ${listOf(B.vals)} — two new lists (${v.n} elements of aux space). Recurse on S1 first.`; break;
+          case "merge_start": text = `Both halves sorted: S1 = ${listOf(A.vals)}, S2 = ${listOf(B.vals)}. merge(S1, S2, S): i = j = 0, writing into S[i+j].`; break;
+          case "compare": { const a = A.vals[v.i], b = B.vals[v.j]; text = `S1[${v.i}] = ${fmt(a)}  <  S2[${v.j}] = ${fmt(b)} ?  → ${tf(ev.res)}. ` + (ev.res ? "Take from S1 (left)." : "Take from S2 (right).");
+            if (a.key === b.key) stab = `Tie: ${short(a)} vs ${short(b)} — strict < is False, so the RIGHT half's ${short(b)} goes first. Equal keys cross halves in reversed order: this merge is not stable as written (<= would fix it).`; break; }
+          case "take": { const out = nd.vals[ev.roles.out]; text = (v.reason === "compare" ? `S[${ev.roles.out}] = ${ev.roles.took === "left" ? "S1[i]" : "S2[j]"} = ${fmt(out)}: one write. ${ev.roles.took === "left" ? "i" : "j"} += 1.` : v.reason === "right_exhausted" ? `j == len(S2): S2 is exhausted, so S[${ev.roles.out}] = S1[i] = ${fmt(out)} without a comparison.` : `i == len(S1): S1 is exhausted, so S[${ev.roles.out}] = S2[j] = ${fmt(out)} without a comparison.`); break; }
+          case "merged": text = `merge done: ${nm(nd)} = ${listOf(nd.vals)} is sorted. S1 and S2 go out of scope (${v.n} aux elements released). Return to depth ${ev.depth}.`; break;
+          case "done": text = `Finished: ${listOf(N[0].vals)}. ${c.comparisons} comparisons, ${c.writes} writes into the S lists, max recursion depth ${c.max_depth}, peak aux space ${c.aux_peak} elements.`; break;
+        }
+        inv = ev.k === "compare" || ev.k === "take" || ev.k === "merge_start" ? `<b>Invariant:</b> S[0..${ev.roles.merged_upto - 1}] holds the ${ev.roles.merged_upto} smallest of S1 ∪ S2 in order; S1[i..] and S2[j..] are still sorted and unread.` : `<b>Invariant:</b> every node marked sorted holds its elements in order; a parent is merged only after both children are sorted.`;
+      }
+      else if (algo === "quick" || algo === "quick_nowrap") {
+        const nw = algo === "quick_nowrap", call = nw ? "quicksort" : "quicksort_inner";
+        switch (ev.k) {
+          case "start": text = n0 === 0 ? "Empty list: first ≥ last — return." : `${call}(0, ${n0 - 1}) on ${listOf(S)}.`; break;
+          case "call": text = `${call}(${v.first}, ${v.last}) — depth ${ev.depth}: sort data[${v.first}..${v.last}]` + (v.last >= v.first ? ` = ${listOf(S.slice(v.first, v.last + 1))}.` : " (empty)."); break;
+          case "base": text = v.first === v.last ? `first == last: one element, already sorted — return. data[${v.first}] = ${fmt(S[v.first])} is final.` : `first > last: empty range — return.`; break;
+          case "mid": text = `left = ${v.left}, right = ${v.right}, mid = ${nw ? "(right − left) // 2 + left" : "(left + right) // 2"} = ${v.mid}. Median-of-three: order data[left], data[mid], data[right].`; break;
+          case "m3_compare": text = `data[${ev.roles.cmp[0]}] = ${fmt(S[ev.roles.cmp[0]])}  >  data[${ev.roles.cmp[1]}] = ${fmt(S[ev.roles.cmp[1]])} ?  → ${tf(ev.res)}. ` + (ev.res ? "Swap them." : "Already in order.") + " (median-of-three comparison — counted)"; break;
+          case "m3_swap": text = `Swap data[${ev.move.a}] ↔ data[${ev.move.b}]  (${short(prev.slots[ev.move.a])} ↔ ${short(prev.slots[ev.move.b])}).`; break;
+          case "pivot": text = `pivot = data[mid] = ${v.pivot} — a VALUE, not an index. data[${v.first}] ≤ pivot ≤ data[${v.last}] now act as sentinels.`; break;
+          case "narrow": text = `left += 1 → ${v.left}, right −= 1 → ${v.right}: the ends are already on the correct side.`; break;
+          case "scan_compare": text = v.side === "left" ? `data[left] = data[${v.left}] = ${fmt(S[v.left])}  <  pivot = ${v.pivot} ?  → ${tf(ev.res)}. ` + (ev.res ? "Belongs left — advance left." : "Stops the left scan (≥ pivot).")
+            : `data[right] = data[${v.right}] = ${fmt(S[v.right])}  >  pivot = ${v.pivot} ?  → ${tf(ev.res)}. ` + (ev.res ? "Belongs right — advance right." : "Stops the right scan (≤ pivot)."); break;
+          case "scan_stop": text = `left = ${v.left} > right = ${v.right}: the ${v.side} scan stops on the index test — no key comparison (NoWrap only).`; break;
+          case "advance": text = v.side === "left" ? `left = ${v.left}.` : `right = ${v.right}.`; break;
+          case "swap": text = ev.move.a === ev.move.b ? `left == right == ${ev.move.a}: data[${ev.move.a}] equals the pivot — a self-swap, then left = ${v.left}, right = ${v.right}.` : `left ≤ right: swap data[${ev.move.a}] ↔ data[${ev.move.b}]  (${short(prev.slots[ev.move.a])} ↔ ${short(prev.slots[ev.move.b])}), then left = ${v.left}, right = ${v.right}.`; break;
+          case "crossed": text = `left = ${v.left} > right = ${v.right}: the pointers crossed during the scans — no swap.`; break;
+          case "partition_done": text = `Partition of data[${v.first}..${v.last}] done: data[${v.first}..${v.right}] ≤ ${v.pivot} ≤ data[${v.left}..${v.last}].` + (v.left - v.right === 2 ? ` data[${v.right + 1}] = ${fmt(S[v.right + 1])} equals the pivot and is final.` : "") + ` Recurse on (${v.first}, ${v.right}) then (${v.left}, ${v.last}).`; break;
+          case "return": text = `${call}(${v.first}, ${v.last}) returns — data[${v.first}..${v.last}] = ${listOf(S.slice(v.first, v.last + 1))} is sorted. Back to depth ${ev.depth}.`; break;
+          case "done": text = `Finished: ${listOf(S)}. ${c.comparisons} comparisons (${c.m3_comparisons} of them median-of-three), ${plural(c.swaps, "swap")}${c.self_swaps ? ` (${c.self_swaps} self)` : ""}, max depth ${c.max_depth}.`; break;
+        }
+        inv = v.left != null && v.pivot != null && ev.k !== "return" ? `<b>Invariant:</b> data[${v.first}..${v.left - 1}] ≤ pivot ≤ data[${v.right + 1}..${v.last}]; data[${v.left}..${v.right}] is still unknown.` : `<b>Invariant:</b> after a partition every element left of the split is ≤ every element right of it; each call sorts its own range in place.`;
+      }
+      else { // radix
+        const bl = (b) => `bucket ${b}`;
+        switch (ev.k) {
+          case "start": text = n0 === 0 ? "Empty list: max_digits = 0 — no passes." : `radix_sort on ${listOf(S)}. No comparisons: sort by one digit at a time, least significant first.`; break;
+          case "max_digits": text = `get_max_length: digit counts ${JSON.stringify(v.digit_counts)} → max_digits = ${v.max_digits}. pow10 = 1. There will be ${plural(v.max_digits, "pass")}.`; break;
+          case "pass_start": text = `Pass ${v.digit_index + 1} of ${v.max_digits}: pow10 = ${v.pow10} — ten empty buckets; distribute by the ${["ones", "tens", "hundreds", "thousands"][v.digit_index] || `10^${v.digit_index}`} digit.`; break;
+          case "digit": text = `num = ${v.num}: bucket_index = abs(${v.num}) // ${v.pow10} % 10 = ${v.bucket_index}.`; break;
+          case "append": text = `buckets[${v.bucket_index}].append(${v.num}) — arrival order inside the bucket is kept.`; break;
+          case "collect_start": text = `All ${n0} elements distributed. Copy buckets 0 → 9 back into array, array_index = 0.`; break;
+          case "write": text = `array[${v.array_index - 1}] = ${v.num} (from ${bl(v.bucket_index)}): one write. array_index = ${v.array_index}.`; break;
+          case "pass_end": text = `pass ${v.digit_index + 1} done: ${listOf(S)} is sorted by the last ${v.digit_index + 1} digit(s). pow10 *= 10 → ${v.pow10}.`; break;
+          case "done": text = `Finished: ${listOf(S)}. ${plural(c.passes, "pass")}, ${c.digit_ops} digit extractions, ${c.writes} writes — and 0 key comparisons.`; break;
+        }
+        inv = v.digit_index != null ? `<b>Invariant:</b> after pass k the array is sorted by its last k digits; buckets preserve arrival order, so ties on this digit keep the previous pass's order.` : `<b>Invariant:</b> after pass k the array is sorted by its last k digits.`;
+      }
+      ev.text = text; ev.inv = inv; ev.stab = stab;
+    }
+    for (let i = 1; i < events.length; i++) {
+      const ev = events[i], prev = events[i - 1], v = ev.vars; let q = null;
+      if (algo === "selection") { if (ev.k === "compare" && prev.k === "iter_start") q = `Which value is compared against data[min_idx] = ${fmt(prev.slots[prev.vars.min_idx])} first — and is it smaller?`; else if (ev.k === "swap" && prev.k !== "iter_start") q = `The scan is over (min_idx = ${prev.vars.min_idx}). Which item moves to index ${prev.vars.i}? Does this code swap even when nothing needs to move?`; }
+      else if (algo.startsWith("bubble")) { if (ev.k === "compare" && prev.k === "iter_start") q = `Pass ${v.i} begins. Which pair is compared first, and will it swap?`; else if (ev.k === "iter_end" && prev.vars.bound > 0) q = `Pass ${prev.vars.i} is ending. Did anything swap? ${algo === "bubble_early" ? "Can it stop now?" : "Does this version stop early?"}`; }
+      else if (algo === "insertion") { if (ev.k === "compare" && prev.k === "key_pickup") q = `key = ${fmt(prev.held)}. Is key < data[${v.j}] = ${fmt(prev.slots[v.j])}? Will data[${v.j}] shift?`; else if (ev.k === "place") q = `The scan stopped at j = ${prev.vars.j}. Where does key = ${fmt(prev.held)} land — and does line 11 write even if it never moved?`; }
+      else if (algo === "merge") { if (ev.k === "compare" && prev.k === "merge_start") { const A = prev.nodes.filter((x) => x.parent === prev.cur); q = `Merging ${listOf(A[0].vals)} with ${listOf(A[1].vals)}: which head is written first — and what happens on a tie with strict <?`; } else if (ev.k === "split") q = `mid = n // 2 = ${v.mid}: which elements go to S1 and which to S2?`; }
+      else if (algo.startsWith("quick")) { if (ev.k === "pivot") q = `first/mid/last are ordered. Which VALUE becomes the pivot?`; else if ((ev.k === "swap" || ev.k === "crossed") && prev.k === "scan_compare") q = `Both scans stopped at left = ${prev.vars.left}, right = ${prev.vars.right}. Swap, or have the pointers crossed?`; else if (ev.k === "partition_done") q = `Partition finished. Which two ranges get recursive calls?`; }
+      else { if (ev.k === "digit" && v.i < 2) q = `Pass ${v.digit_index + 1}: which bucket does ${v.num} go to?`; else if (ev.k === "collect_start") q = `Buckets are full. In what order do the elements come back — and is the array now sorted?`; }
+      ev.predict = q;
+    }
+    return events;
+  }
+
+  /* ------------------------------------------------------------------ */
+  function rebuild() {
+    stop();
+    const k = key();
+    state.events = annotate(E.trace(k, state.values), k);
+    state.idx = 0; state.pending = -1; hidePredict();
+    buildStage(); buildCode(); buildTimeline(); buildSummary();
+    $("notes").innerHTML = NOTES[k];
+    buildAnalysis();
+    render(state.events[0], null);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* stage construction                                                  */
+  /* ------------------------------------------------------------------ */
+  const left = (i) => state.offset + i * (state.tile + state.gap);
+  const maxDigits = () => Math.max(1, ...state.values.map((v) => String(Math.abs(Array.isArray(v) ? v[0] : v)).length));
+  const fontFor = (tile) => { const d = maxDigits(); return Math.round(tile * (d <= 2 ? 0.38 : d === 3 ? 0.31 : 0.25)); };
+  function tileHtml(s, fs) { return `<div class="tile" style="font-size:${fs}px"><span class="val">${s ? s.key : ""}</span><span class="tag">${s && s.tag != null ? s.tag : ""}</span><span class="lock"></span></div>`; }
+
+  function buildStage() {
+    const k = key(), fam = FAMILY[k], stage = $("stage"), n = state.values.length;
+    ["slot-row", "held-row", "ptr-rows", "tree-layer", "bucket-layer"].forEach((id) => { $(id).innerHTML = ""; });
+    stage.querySelectorAll(".empty-note").forEach((e) => e.remove());
+    $("bracket").classList.remove("show"); $("stackline").classList.remove("show"); $("eqorder").classList.remove("show");
+    const W = stage.clientWidth || 800;
+    const LT = { cmp: "comparing now", min: "min so far (min_idx)", final: "final position", key: "key (local var)", hole: "hole (stale copy)", shift: "shifted", sorted: "sorted prefix (may move)",
+      le: "≤ pivot (left part)", ge: "≥ pivot (right part)", node: "active call", msorted: "sorted list", released: "released copy", bucket: "target bucket" };
+    const LG = { selection: ["cmp", "min", "final"], bubble: ["cmp", "final"], bubble_early: ["cmp", "final"], insertion: ["key", "cmp", "hole", "shift", "sorted", "final"],
+      quick: ["cmp", "le", "ge", "final"], quick_nowrap: ["cmp", "le", "ge", "final"], merge: ["node", "cmp", "msorted", "released"], radix: ["cmp", "bucket", "final"] };
+    $("legend").innerHTML = LG[k].map((x) => `<span><i class="l-${x}"></i>${LT[x]}</span>`).join("");
+    $("stage-title").textContent = `${FN[k]}  ·  ${LBL[state.inputName] ? LBL[state.inputName].split(" [")[0] : state.inputName}`;
+    $("ctl-early").style.display = state.algo === "bubble" ? "" : "none";
+    $("ctl-nowrap").style.display = state.algo === "quick" ? "" : "none";
+    if (n === 0) { const e = document.createElement("div"); e.className = "empty-note"; e.textContent = "Empty list — nothing to compare, nothing to write."; stage.appendChild(e); }
+    if (fam === "array") buildArrayStage(k, n, W, stage);
+    else if (fam === "tree") buildTreeStage(n, W, stage);
+    else buildBucketStage(n, W, stage);
+  }
+
+  function buildArrayStage(k, n, W, stage) {
+    const slotRow = $("slot-row"), heldRow = $("held-row"), ptrRows = $("ptr-rows");
+    const maxTile = window.innerHeight < 800 ? 80 : 96;
+    state.gap = n > 9 ? 6 : 10;
+    state.tile = Math.max(44, Math.min(maxTile, Math.floor((W - state.gap * (n + 1)) / Math.max(n, 1))));
+    state.offset = Math.max(0, (W - (n * state.tile + (n - 1) * state.gap)) / 2);
+    stage.style.setProperty("--tile", state.tile + "px");
+    const fs = fontFor(state.tile);
+    state.slotEls = [];
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement("div"); s.className = "slot"; s.style.left = left(i) + "px";
+      s.innerHTML = `<div class="cap"></div>${tileHtml(null, fs)}<div class="idx">${i}</div>`;
+      slotRow.appendChild(s); state.slotEls.push(s);
+    }
+    const h = document.createElement("div"); h.className = "held"; h.style.display = "none";
+    h.innerHTML = `<div class="cap">key</div>${tileHtml(null, fs)}`;
+    heldRow.appendChild(h); state.heldEl = h;
+    const names = k === "selection" ? ["i", "j", "min_idx"] : k.startsWith("bubble") ? ["i", "j"] : k === "insertion" ? ["index", "j"] : ["left", "right", "mid"];
+    const hasHeld = k === "insertion" || k.startsWith("quick");
+    const slotTop = hasHeld ? 150 : 58;
+    heldRow.style.display = hasHeld ? "" : "none"; slotRow.style.top = slotTop + "px";
+    const ptrTop = slotTop + state.tile + 30; ptrRows.style.top = ptrTop + "px";
+    stage.style.height = (ptrTop + names.length * 24 + 2) + "px";
+    names.forEach((nm, r) => { const p = document.createElement("div"); p.className = "ptr"; p.dataset.name = nm; p.style.top = (r * 24) + "px"; p.innerHTML = `<span class="arrow">▲</span><span class="lbl">${nm}</span>`; ptrRows.appendChild(p); });
+  }
+
+  function buildTreeStage(n, W, stage) {
+    const layer = $("tree-layer"), last = state.events[state.events.length - 1];
+    const rows = Math.max(1, ...last.nodes.map((x) => x.depth + 1));
+    const gap = 6, pad = 8;
+    const tt = Math.max(30, Math.min(64, Math.floor((W - 40 - gap * (n - 1)) / Math.max(n, 1)), Math.floor((Math.max(300, window.innerHeight - 470)) / rows) - 34));
+    const rowH = tt + 36;
+    state.tile = tt; state.gap = gap; state.offset = Math.max(0, (W - (n * tt + (n - 1) * gap)) / 2);
+    stage.style.setProperty("--tile", tt + "px");
+    stage.style.height = (rows * rowH + 6) + "px";
+    const fs = fontFor(tt);
+    const nodesEl = {};
+    last.nodes.forEach((nd) => {
+      const x = state.offset + nd.start * (tt + gap) - pad, y = nd.depth * rowH + 10;
+      const box = document.createElement("div"); box.className = "node pending"; box.dataset.id = nd.id;
+      box.style.left = x + "px"; box.style.top = y + "px"; box.style.width = (nd.len * (tt + gap) - gap + 2 * pad) + "px"; box.style.height = (tt + 2 * pad) + "px";
+      const lab = nd.id === 0 ? "S" : (nd.start === last.nodes[nd.parent].start ? "S1" : "S2");
+      box.innerHTML = `<span class="nlabel">${nd.len * (tt + gap) < 80 ? lab : lab + " · n=" + nd.len}</span>`;
+      const tiles = [];
+      for (let i = 0; i < nd.len; i++) {
+        const t = document.createElement("div"); t.className = "tslot"; t.style.left = (pad + i * (tt + gap)) + "px"; t.style.top = pad + "px"; t.style.width = tt + "px"; t.style.height = tt + "px"; t.style.fontSize = fs + "px";
+        t.innerHTML = `${tileHtml(null, fs)}<div class="cap"></div>`; box.appendChild(t); tiles.push(t);
+      }
+      layer.appendChild(box); nodesEl[nd.id] = { box, tiles, x, y };
+    });
+    state.tree = { nodesEl, tt, gap, pad, rowH };
+  }
+
+  function buildBucketStage(n, W, stage) {
+    const layer = $("bucket-layer");
+    const gap = n > 9 ? 6 : 10;
+    const aw = Math.max(44, Math.min(84, Math.floor((W - gap * (n + 1)) / Math.max(n, 1)))), ah = Math.round(aw * 0.72);
+    state.tile = aw; state.gap = gap; state.offset = Math.max(0, (W - (n * aw + (n - 1) * gap)) / 2);
+    const afs = fontFor(aw);
+    const arrTop = 34;
+    const slots = [];
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement("div"); s.className = "slot"; s.style.left = left(i) + "px"; s.style.top = arrTop + "px"; s.style.width = aw + "px"; s.style.height = ah + "px";
+      s.innerHTML = `<div class="cap"></div>${tileHtml(null, afs)}<div class="idx" style="top:${ah + 4}px">${i}</div>`;
+      layer.appendChild(s); slots.push(s);
+    }
+    const bTop = arrTop + ah + 58, bgap = 8, bw = Math.floor((W - 9 * bgap) / 10), bh = n > 8 ? 26 : 30;
+    const cap = Math.max(1, ...state.events.map((e) => Math.max(...e.buckets.map((bk) => bk.length))));
+    const bH = cap * (bh + 4) + 10;
+    const buckets = [];
+    for (let b = 0; b < 10; b++) {
+      const box = document.createElement("div"); box.className = "bucket"; box.style.left = (b * (bw + bgap)) + "px"; box.style.top = bTop + "px"; box.style.width = bw + "px"; box.style.height = bH + "px";
+      box.innerHTML = `<div class="blabel">${b}</div>`;
+      const cells = [];
+      for (let p = 0; p < cap; p++) {
+        const c = document.createElement("div"); c.className = "bslot"; c.style.left = "5px"; c.style.top = (6 + p * (bh + 4)) + "px"; c.style.width = (bw - 10) + "px"; c.style.height = bh + "px"; c.style.fontSize = Math.min(16, Math.round(bh * 0.55)) + "px"; c.style.display = "none";
+        c.innerHTML = tileHtml(null, Math.min(16, Math.round(bh * 0.55))); box.appendChild(c); cells.push(c);
+      }
+      layer.appendChild(box); buckets.push({ box, cells, x: b * (bw + bgap), y: bTop, bw, bh });
+    }
+    stage.style.height = (bTop + bH + 8) + "px";
+    state.bucket = { slots, buckets, aw, ah, arrTop, bw, bh, bgap };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* code / timeline / summary                                           */
+  /* ------------------------------------------------------------------ */
+  const escapeHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function buildCode() {
+    const k = key(), b = SRC[k];
+    $("code").innerHTML = b.lines.map((ln, i) => `<div class="ln" data-line="${b.first + i}"><span class="no">${b.first + i}</span><span>${escapeHtml(ln) || " "}</span></div>`).join("");
+    $("code-title").textContent = `Python source — ${FILE[k]}`;
+    $("code-src").textContent = `${FILE[k]} lines ${b.first}–${b.first + b.lines.length - 1}, quoted verbatim.` + (k === "bubble_early" ? " This version is commented out in the file; the trace follows it as if uncommented." : k === "quick" ? " (QuickSort_NoComments.py is the same logic without the comments.)" : "") + " Playback re-traces exactly these lines.";
+  }
+  function buildTimeline() {
+    const tl = $("timeline"), N = state.events.length - 1; tl.max = N; tl.value = 0; $("pos-n").textContent = N;
+    const ticks = $("ticks"); ticks.innerHTML = "";
+    state.events.forEach((ev, i) => { if (isBoundary(ev) && i < N) { const t = document.createElement("div"); t.className = "tick" + (ev.k === "early_exit" ? " ex" : ""); t.style.left = (N ? (i / N) * 100 : 0) + "%"; ticks.appendChild(t); } });
+  }
+  function buildSummary() {
+    const k0 = key();
+    const algos = k0 === "merge" || k0.startsWith("quick") ? ["merge", "quick", "quick_nowrap"] : k0 === "radix" ? ["radix", "merge", "quick"] : ["selection", "bubble", "bubble_early", "insertion"];
+    const hdr = { selection: "selection", bubble: "bubble", bubble_early: "bubble (early)", insertion: "insertion", merge: "merge", quick: "quick", quick_nowrap: "quick NoWrap", radix: "radix" };
+    const names = inputsFor(key()).filter((x) => x !== "custom" && x !== "random");
+    const rows = names.map((nm) => [nm, E.PRESETS[nm]]);
+    if (state.inputName === "custom" || state.inputName === "random") rows.push([state.inputName, state.values]);
+    let h = `<tr><th>input</th><th>n</th>${algos.map((a) => `<th>${hdr[a]}</th>`).join("")}</tr>`;
+    for (const [nm, vals] of rows) {
+      const cells = algos.map((a) => {
+        if (a === "radix" && (vals.some((v) => Array.isArray(v)) || vals.some((v) => v < 0))) return `<td>—</td>`;
+        const c = E.trace(a, vals).at(-1).cnt;
+        const txt = a === "radix" ? `${c.passes} p / ${c.writes} w` : a === "merge" || a === "insertion" ? `${c.comparisons} / ${c.writes} w` : `${c.comparisons} / ${c.swaps} s`;
+        return `<td class="${nm === state.inputName && a === key() ? "cur" : ""}">${txt}</td>`;
+      });
+      h += `<tr class="${nm === state.inputName ? "cur" : ""}"><td>${(LBL[nm] || nm).split(" [")[0]}</td><td>${vals.length}</td>${cells.join("")}</tr>`;
+    }
+    $("summary").innerHTML = h;
+    $("summary-title").textContent = "Measured cost across inputs — comparisons / swaps (s) or writes (w); radix: passes / writes";
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* run-time analysis panel (added in the "+ Analysis" edition)          */
+  /* Everything below reads the finished trace (state.events) and the    */
+  /* input; it never touches the trace engine.                            */
+  /* ------------------------------------------------------------------ */
+  const ANALYSIS_LOG2 = (x) => Math.log(x) / Math.LN2;
+  const keysOf = (vals) => vals.map((v) => Array.isArray(v) ? v[0] : v);
+  function inversions(vals) { const a = keysOf(vals); let I = 0; for (let x = 0; x < a.length; x++) for (let y = x + 1; y < a.length; y++) if (a[x] > a[y]) I += 1; return I; }
+  function newMinima(vals) { const a = keysOf(vals); let z = 0; for (let x = 1; x < a.length; x++) { let all = true; for (let y = 0; y < x; y++) if (!(a[x] < a[y])) { all = false; break; } if (all) z += 1; } return z; }
+  const tri = (n) => n * (n - 1) / 2;
+  const fmtNum = (x) => Number.isInteger(x) ? String(x) : x.toFixed(2);
+
+  /* per-pass table for the three loop sorts: comparisons / swaps / shifts in each outer-loop iteration */
+  function passRows(events) {
+    const rows = []; let base = events[0].cnt, last = events[0].cnt, curP = null;
+    const push = () => { if (curP !== null) rows.push({ p: curP, comparisons: last.comparisons - base.comparisons, swaps: (last.swaps || 0) - (base.swaps || 0), shifts: (last.shifts || 0) - (base.shifts || 0), writes: last.writes - base.writes }); };
+    for (const ev of events) { if (ev.k === "done") break; if (ev.p < 0) { last = ev.cnt; continue; } if (ev.p !== curP) { push(); base = last; curP = ev.p; } last = ev.cnt; }
+    push(); return rows;
+  }
+  /* per-level table for merge (ev.p = node depth, root 0) and quick (ev.p = call depth, root 1) */
+  function levelRows(events, kind) {
+    const L = {};
+    const row = (p) => L[p] = L[p] || { p, calls: 0, sizes: [], comparisons: 0, swaps: 0, writes: 0 };
+    for (const ev of events) {
+      if (ev.k === "call") { const r = row(ev.p); r.calls += 1; r.sizes.push(kind === "merge" ? ev.vars.n : Math.max(0, ev.vars.last - ev.vars.first + 1)); }
+      else if (ev.k === "compare" || ev.k === "scan_compare" || ev.k === "m3_compare") row(ev.p).comparisons += 1;
+      else if (ev.k === "take") row(ev.p).writes += 1;
+      else if (ev.k === "swap" || ev.k === "m3_swap") row(ev.p).swaps += 1;
+    }
+    return Object.keys(L).sort((a, b) => a - b).map((p) => L[p]);
+  }
+
+  /* shared HTML pieces (same look as the recursion companion) */
+  const aHead = (T, meaning, answer) => `<h2>Run-time analysis of this code</h2><div class="tn">${T}<small>${meaning}</small></div><p class="ans">${answer}</p>`;
+  function toolCards(best, cards) {
+    const card = (name, t, isBest) => `<div class="tool ${isBest ? "best" : t.na ? "na" : "ok"}"><div class="tt">${name}<span class="badge">${isBest ? "best here" : t.na ? "not applicable" : "works"}</span></div>${t.why}</div>`;
+    return `<div class="tools">${cards.map((c) => card(c.name, c, c.id === best)).join("")}</div>`;
+  }
+  function masterBlock(a, b, c, extra) {
+    const lb = Math.log(a) / Math.log(b), cse = Math.abs(lb - c) < 1e-9 ? 2 : lb > c ? 1 : 3;
+    const cls = cse === 2 ? (c === 0 ? "Θ(log n)" : c === 1 ? "Θ(n log n)" : `Θ(n^${c} log n)`) : cse === 1 ? (Math.abs(lb - 1) < 1e-9 ? "Θ(n)" : `Θ(n^${lb.toFixed(2)})`) : (c === 1 ? "Θ(n)" : `Θ(n^${c})`);
+    return `<h3>MASTER THEOREM — T(n) = a·T(n/b) + n^c</h3><div class="ln">a = ${a}, b = ${b}, c = ${c}   →   log_b a = log_${b} ${a} = ${fmtNum(lb)}</div><div class="ln">compare log_b a with c:  ${fmtNum(lb)} ${cse === 2 ? "=" : cse === 1 ? ">" : "<"} ${c}   →   Case ${cse} (${cse === 1 ? "leaves dominate" : cse === 2 ? "every level costs the same" : "the root dominates"})</div><div class="ln"><b>T(n) = ${cls}</b></div>${extra || ""}`;
+  }
+  const substBlock = (title, lines, closing) => `<h3>${title}</h3>${lines.map((l) => `<div class="ln">${l}</div>`).join("")}<div class="ln"><b>${closing}</b></div>`;
+  function passBlock(rows, expectLabel, expectOf, secondary) {
+    const tot = rows.reduce((s, r) => s + r.comparisons, 0), tot2 = rows.reduce((s, r) => s + r[secondary.key], 0);
+    return `<h3>LOOP TABLE — THIS RUN</h3><table><tr><th>${secondary.pass}</th><th>${expectLabel}</th><th>comparisons</th><th>${secondary.label}</th></tr>${rows.map((r) => `<tr><td>${r.p}</td><td>${expectOf(r.p)}</td><td>${r.comparisons}</td><td>${r[secondary.key]}</td></tr>`).join("")}<tr class="tot"><td>total</td><td>${rows.reduce((s, r) => s + expectOf(r.p), 0)}</td><td>${tot}</td><td>${tot2}</td></tr></table>`;
+  }
+  function levelBlock(rows, kind) {
+    const isM = kind === "merge";
+    const tot = (f) => rows.reduce((s, r) => s + r[f], 0);
+    return `<h3>RECURSION TREE — THIS RUN</h3><table><tr><th>level</th><th>calls</th><th>sizes</th><th>Σ size</th><th>comparisons</th><th>${isM ? "writes into S" : "swaps"}</th></tr>${rows.map((r) => `<tr><td>${isM ? r.p : r.p - 1}</td><td>${r.calls}</td><td>${r.sizes.join(", ")}</td><td>${r.sizes.reduce((s, x) => s + x, 0)}</td><td>${r.comparisons}</td><td>${isM ? r.writes : r.swaps}</td></tr>`).join("")}<tr class="tot"><td>total</td><td>${tot("calls")}</td><td></td><td></td><td>${tot("comparisons")}</td><td>${isM ? tot("writes") : tot("swaps")}</td></tr></table>`;
+  }
+  const casesBlock = (rows) => `<h3>BEST · AVERAGE · WORST</h3><table class="cases"><tr><th>case</th><th>input that causes it</th><th>comparisons</th><th>writes / moves</th><th>class</th></tr>${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><b>${r[4]}</b></td></tr>`).join("")}</table>`;
+  const propsBlock = (items) => `<div class="props">${items.map((p) => `<span class="prop ${p[2]}"><b>${p[0]}</b> ${p[1]}</span>`).join("")}</div>`;
+  const measured = (pred, meas, note) => `<p class="measured">Predicted for this input: ${pred}. Measured by the trace: <b>${meas}</b>.${note ? " " + note : ""}</p>`;
+
+  const CASES = {
+    selection: [["best", "any — the scan never stops early", "n(n−1)/2", "n swaps (2n writes)", "Θ(n²)"], ["average", "any", "n(n−1)/2", "n swaps", "Θ(n²)"], ["worst", "any", "n(n−1)/2", "n swaps", "Θ(n²)"]],
+    bubble: [["best", "already sorted (no swaps, but no early exit)", "n(n−1)/2", "0 swaps", "Θ(n²)"], ["average", "random order", "n(n−1)/2", "≈ n(n−1)/4 swaps", "Θ(n²)"], ["worst", "reverse sorted", "n(n−1)/2", "n(n−1)/2 swaps", "Θ(n²)"]],
+    bubble_early: [["best", "already sorted — one clean pass, then break", "n − 1", "0 swaps", "Θ(n)"], ["average", "random order", "≈ n(n−1)/2", "≈ n(n−1)/4 swaps", "Θ(n²)"], ["worst", "reverse sorted", "n(n−1)/2", "n(n−1)/2 swaps", "Θ(n²)"]],
+    insertion: [["best", "already sorted — every while test fails at once", "n − 1", "0 shifts + (n−1) placements", "Θ(n)"], ["average", "random order", "≈ n²/4", "≈ n²/4 shifts", "Θ(n²)"], ["worst", "reverse sorted — every key walks to index 0", "n(n−1)/2", "n(n−1)/2 shifts", "Θ(n²)"]],
+    merge: [["best", "halves that never interleave (e.g. already sorted)", "≈ ½·n log₂ n", "≈ n log₂ n writes (exactly n log₂ n when n is a power of 2)", "Θ(n log n)"], ["average", "random order", "≈ n log₂ n − 1.25n", "same", "Θ(n log n)"], ["worst", "halves that interleave perfectly", "n⌈log₂ n⌉ − 2^⌈log₂ n⌉ + 1", "same", "Θ(n log n)"]],
+    quick: [["best", "every pivot is the true median → T(n) = 2T(n/2) + n", "≈ n log₂ n", "O(n) swaps per level → Θ(n log n)", "Θ(n log n)"], ["average", "random order (median-of-three helps the constant)", "≈ 1.39·n log₂ n", "Θ(n log n) swaps", "Θ(n log n)"], ["worst", "a pivot at one extreme every time → T(n) = T(n−1) + n (rare with median-of-three, but constructible)", "≈ n²/2", "≈ n²/2 in the extreme", "Θ(n²)"]],
+    radix: [["best", "any (no comparisons, nothing to exit early)", "0", "d·n bucket copies + d·n writes", "Θ(d·n)"], ["average", "any", "0", "d·n + d·n", "Θ(d·n)"], ["worst", "any — d = digits of the largest |value|", "0", "d·n + d·n", "Θ(d·n)"]],
+  };
+  CASES.quick_nowrap = CASES.quick;
+  const PROPS = {
+    selection: [["in place", "yes — swaps only, O(1) extra", "yes"], ["stable", "no — the long-distance swap can jump an equal key", "no"], ["adaptive", "no — same cost on every input", "no"]],
+    bubble: [["in place", "yes — adjacent swaps, O(1) extra", "yes"], ["stable", "yes — strict > never swaps equal keys", "yes"], ["adaptive", "no in this version (no early exit); yes with it", "no"]],
+    bubble_early: [["in place", "yes — adjacent swaps, O(1) extra", "yes"], ["stable", "yes — strict > never swaps equal keys", "yes"], ["adaptive", "yes — sorted input costs Θ(n)", "yes"]],
+    insertion: [["in place", "yes — shifts inside the list, O(1) extra (one key variable)", "yes"], ["stable", "yes — strict < stops at an equal key", "yes"], ["adaptive", "yes — cost = inversions + (n−1)", "yes"]],
+    merge: [["in place", "no — S1 and S2 are copies: Θ(n) extra", "no"], ["stable", "no as written — strict < lets S2 win ties (<= would fix it)", "no"], ["adaptive", "no — always splits and merges everything", "no"]],
+    quick: [["in place", "yes — swaps only; the call stack is Θ(log n) expected, Θ(n) worst", "yes"], ["stable", "no — partition swaps across long distances", "no"], ["adaptive", "partly — median-of-three makes sorted/reverse input a good case", "part"]],
+    radix: [["in place", "no — ten buckets hold all n elements: Θ(n + 10) extra", "no"], ["stable", "yes — buckets keep arrival order (this is why LSD works)", "yes"], ["adaptive", "no — d passes over everything, always", "no"]],
+  };
+  PROPS.quick_nowrap = PROPS.quick;
+
+  function buildAnalysis() {
+    const k = key(), ev = state.events, last = ev[ev.length - 1], c = last.cnt, n = state.values.length, vals = state.values;
+    let h = "";
+    const loopCards = (bestId, sumWhy, recWhy, masterWhy, recNa) => toolCards(bestId, [
+      { id: "sum", name: "Count the loops (Σ)", why: sumWhy },
+      { id: "rec", name: "Recurrence + substitution", na: !!recNa, why: recWhy },
+      { id: "master", name: "Master Theorem", na: true, why: masterWhy },
+    ]);
+    if (k === "selection") {
+      h += aHead("C(n) = Σ<sub>i=0</sub><sup>n−1</sup> (n − 1 − i) = n(n−1)/2", "comparisons, n = len(data)", "Two nested loops; the inner one runs n−1−i times on pass i, and nothing ever stops it early → <b>Θ(n²)</b> on every input. Swaps are exactly n (line 11 has no guard) → Θ(n) writes.");
+      h += loopCards("sum", "The natural tool: pass i does n−1−i comparisons, so add them up: (n−1) + (n−2) + … + 1 + 0 — an arithmetic series.", "Also works: placing one minimum costs n−1 comparisons and leaves a problem of size n−1: T(n) = T(n−1) + (n−1). Unroll it and the same series appears.", "The recurrence subtracts (n−1), it does not divide n by b — the theorem cannot be stated.");
+      h += `<div class="work">${substBlock("LOOP SUM", [`pass i compares data[j] for j = i+1 … n−1  →  n − 1 − i comparisons`, `C(n) = (n−1) + (n−2) + … + 1 + 0 = Σ<sub>m=0</sub><sup>n−1</sup> m`, `     = n(n−1)/2   (pair the ends: n−1 + 0, n−2 + 1, … each pair sums to n−1; there are n/2 pairs)`, `for n = ${n}:  ${n > 1 ? Array.from({ length: n }, (_, i) => n - 1 - i).join(" + ") : "0"} = ${tri(n)}`], "C(n) = n(n−1)/2 → Θ(n²)")}
+        <div style="margin-top:8px">${substBlock("SAME ANSWER BY RECURRENCE — T(n) = T(n−1) + (n−1), T(1) = 0", [`T(n) = T(n−1) + (n−1)`, `     = [T(n−2) + (n−2)] + (n−1)`, `     = T(n−3) + (n−3) + (n−2) + (n−1)`, `     = T(n−k) + Σ<sub>m=1</sub><sup>k</sup> (n−m)`, `stop at n − k = 1 (k = n − 1):  T(n) = 0 + (1 + 2 + … + (n−1))`], "T(n) = n(n−1)/2 → Θ(n²)  — subtractive recurrences go to substitution, never to the Master Theorem")}</div>
+        <div style="margin-top:8px">${passBlock(passRows(ev), "n−1−i", (p, raw) => n - 1 - p, { key: "swaps", label: "swaps (always 1)", pass: "pass i" })}</div>
+        <div style="margin-top:8px">${casesBlock(CASES.selection)}</div></div>`;
+      h += propsBlock(PROPS.selection);
+      h += measured(`<b>${tri(n)} comparisons</b> = ${n}·${n - 1}/2, <b>${n} swaps</b>`, `${c.comparisons} comparisons, ${c.swaps} swaps (${c.self_swaps} self), ${c.writes} writes`, "Selection sort is the one sort here whose comparison count does not depend on the input at all.");
+    } else if (k === "bubble" || k === "bubble_early") {
+      const early = k === "bubble_early", I = inversions(vals);
+      h += aHead(early ? "C(n) between n − 1 and n(n−1)/2" : "C(n) = Σ<sub>i=0</sub><sup>n−1</sup> (n − i − 1) = n(n−1)/2", "comparisons, n = len(data)", early ? "Same nested loops, but a pass with no swap proves the list sorted and <code>break</code>s: <b>Θ(n)</b> best case (one pass), <b>Θ(n²)</b> worst. Swaps = number of inversions of the input." : "Nested loops with <code>range(0, n−i−1)</code>: pass i makes n−i−1 comparisons and nothing stops early → <b>Θ(n²)</b> comparisons on <em>every</em> input, even a sorted one. Swaps = number of inversions of the input (pairs out of order), from 0 to n(n−1)/2.");
+      h += loopCards("sum", "Pass i compares j = 0 … n−i−2, that is n−i−1 comparisons. Sum the arithmetic series.", early ? "Works for the worst case: T(n) = T(n−1) + (n−1) (one pass fixes the largest element). The best case is not a recurrence at all — one pass and stop." : "Works: one pass moves the largest element to the end and leaves n−1 to sort: T(n) = T(n−1) + (n−1) → substitution → n(n−1)/2.", "Subtractive recurrence — no division of n, so the theorem does not apply.");
+      h += `<div class="work">${substBlock("LOOP SUM", [`pass i compares (data[j], data[j+1]) for j = 0 … n−i−2  →  n − i − 1 comparisons`, `C(n) = (n−1) + (n−2) + … + 1 + 0 = n(n−1)/2`, `for n = ${n}:  ${n > 1 ? Array.from({ length: n }, (_, i) => n - 1 - i).join(" + ") : "0"} = ${tri(n)}`, early ? `early exit: the loop breaks after the first pass with swapped == False — on sorted input that is pass 0, after n − 1 = ${Math.max(0, n - 1)} comparisons` : `swaps: each swap removes exactly one inversion, so swaps = inversions(input) = ${I} here`], early ? "n − 1 ≤ C(n) ≤ n(n−1)/2 → Ω(n), O(n²)" : "C(n) = n(n−1)/2 → Θ(n²); swaps = inversions → 0 … n(n−1)/2")}
+        <div style="margin-top:8px">${passBlock(passRows(ev), "n−i−1", (p) => n - 1 - p, { key: "swaps", label: "swaps", pass: "pass i" })}</div>
+        <div style="margin-top:8px">${casesBlock(CASES[k])}</div></div>`;
+      h += propsBlock(PROPS[k]);
+      h += measured(early ? `≤ <b>${tri(n)} comparisons</b>, <b>${I} swaps</b> (= inversions)` : `<b>${tri(n)} comparisons</b>, <b>${I} swaps</b> (= inversions of the input)`, `${c.comparisons} comparisons, ${c.swaps} swaps, ${c.writes} writes`, early ? "Compare the same input with the toggle off: the comparison count changes, the swap count never does." : "Tick the early-exit toggle to see the best case drop to n − 1.");
+    } else if (k === "insertion") {
+      const I = inversions(vals), z = newMinima(vals), predC = n > 0 ? I + (n - 1) - z : 0;
+      h += aHead("C(n) = inversions + (n − 1) − z", "comparisons; z = keys that walk all the way to index 0", "The while loop runs once per element it shifts, plus one failing test — unless the key runs off the left end (j = −1), which is an index test, not a comparison. So <b>comparisons = shifts + (n−1) − z</b> and <b>shifts = inversions</b>: from 0 on sorted input (<b>Θ(n)</b>) to n(n−1)/2 on reversed input (<b>Θ(n²)</b>).");
+      h += loopCards("sum", "Iteration <code>index</code> does at most <code>index</code> comparisons (and at least 1). Sum the maximum: 1 + 2 + … + (n−1) = n(n−1)/2; the minimum is n − 1.", "Works: inserting the last key into a sorted prefix of n−1 costs ≤ n−1: T(n) = T(n−1) + (n−1) worst, T(n) = T(n−1) + 1 best — both unroll by substitution.", "Subtractive again. There is no a·T(n/b) here.");
+      const worst = Array.from({ length: Math.max(0, n - 1) }, (_, i) => i + 1);
+      h += `<div class="work">${substBlock("LOOP SUM — WORST AND BEST", [`iteration index compares key with data[index−1], data[index−2], … until one is ≤ key or j hits −1`, `worst (reverse sorted): every key shifts the whole prefix → index comparisons  →  1 + 2 + … + (n−1) = n(n−1)/2`, `for n = ${n}:  ${worst.length ? worst.join(" + ") : "0"} = ${tri(n)}`, `best (sorted): one failing test per iteration → n − 1 = ${Math.max(0, n - 1)} comparisons, 0 shifts`, `this input: inversions = ${I} (pairs out of order), z = ${z} keys smaller than everything before them`], `C = ${I} + ${Math.max(0, n - 1)} − ${z} = ${predC};  shifts = ${I};  placements = n − 1 = ${Math.max(0, n - 1)} (line 11 always writes)`)}
+        <div style="margin-top:8px">${substBlock("BY RECURRENCE — T(n) = T(n−1) + (n−1), T(1) = 0 (worst case)", [`T(n) = T(n−1) + (n−1) = T(n−2) + (n−2) + (n−1) = … = T(1) + 1 + 2 + … + (n−1)`], "T(n) = n(n−1)/2 → Θ(n²)   (best case: T(n) = T(n−1) + 1 → n − 1 → Θ(n))")}</div>
+        <div style="margin-top:8px">${passBlock(passRows(ev), "≤ index", (p) => p, { key: "shifts", label: "shifts", pass: "index" })}</div>
+        <div style="margin-top:8px">${casesBlock(CASES.insertion)}</div></div>`;
+      h += propsBlock(PROPS.insertion);
+      h += measured(`<b>${predC} comparisons</b>, <b>${I} shifts</b>, ${Math.max(0, n - 1)} placements`, `${c.comparisons} comparisons, ${c.shifts} shifts, ${c.placements} placements, ${c.writes} writes`, "Insertion sort is adaptive: its cost is the number of inversions, so nearly-sorted input is nearly free.");
+    } else if (k === "merge") {
+      const rows = levelRows(ev, "merge"), lg = n > 0 ? Math.ceil(ANALYSIS_LOG2(n)) : 0;
+      const internal = last.nodes.filter((nd) => nd.len >= 2), predW = internal.reduce((s, nd) => s + nd.len, 0);
+      const lo = internal.reduce((s, nd) => s + Math.min(Math.floor(nd.len / 2), nd.len - Math.floor(nd.len / 2)), 0), hi = internal.reduce((s, nd) => s + nd.len - 1, 0);
+      h += aHead("T(n) = 2·T(n/2) + n", "n = len(S); the + n is merge: n writes and ≤ n − 1 comparisons", "Two calls on HALF the list, plus linear work to merge → <b>Θ(n log n)</b> on every input. The split does not depend on the values, so best, average and worst case are all Θ(n log n).");
+      h += toolCards("master", [
+        { id: "master", name: "Master Theorem", why: "Exactly the form a·T(n/b) + n^c with a = 2, b = 2, c = 1. log₂ 2 = 1 = c → Case 2 → Θ(n log n). One line." },
+        { id: "subst", name: "Backward substitution", why: "Clean too: T(n) = 2^k·T(n/2^k) + k·n; the base case arrives at k = log₂ n, giving n·T(1) + n log₂ n. Use it to see where the log comes from." },
+        { id: "tree", name: "Recursion tree", why: "Shows WHY: every level holds all n elements, so every level costs n, and there are log₂ n + 1 levels. The table below is that tree, measured from this run." },
+      ]);
+      h += `<div class="work">${masterBlock(2, 2, 1)}
+        <div style="margin-top:8px">${substBlock("BACKWARD SUBSTITUTION — unroll, spot the pattern, hit the base case", [`T(n) = 2·T(n/2) + n`, `     = 2·[2·T(n/4) + n/2] + n = 4·T(n/4) + 2n`, `     = 4·[2·T(n/8) + n/4] + 2n = 8·T(n/8) + 3n`, `     = 2^k·T(n/2^k) + k·n`, `stop when n/2^k = 1, i.e. k = log₂ n:  T(n) = n·T(1) + n·log₂ n`], "T(n) = n log₂ n + n → Θ(n log n)")}</div>
+        <div style="margin-top:8px">${levelBlock(rows, "merge")}<div class="ln" style="margin-top:6px">every level's Σ size is n = ${n}; levels with a merge: ${rows.filter((r) => r.writes > 0).length} ≈ ⌈log₂ ${n}⌉ = ${lg}  →  writes ≈ n·log₂ n</div></div>
+        <div style="margin-top:8px">${casesBlock(CASES.merge)}</div></div>`;
+      h += propsBlock(PROPS.merge);
+      h += measured(`<b>${predW} writes</b> (Σ of every merged list's length${n && (n & (n - 1)) === 0 ? ` = n log₂ n = ${n}·${lg}` : ""}), comparisons between ${lo} and ${hi} for this split`, `${c.comparisons} comparisons, ${c.writes} writes, max depth ${c.max_depth}, peak aux space ${c.aux_peak} elements`, "The aux peak is why merge sort is not in place: S1 and S2 are real copies.");
+    } else if (k === "quick" || k === "quick_nowrap") {
+      const rows = levelRows(ev, "quick"), depthUsed = rows.length, balanced = n > 0 ? Math.ceil(ANALYSIS_LOG2(n)) + 1 : 0;
+      h += aHead("T(n) = T(k) + T(n − k − 1) + n", "k = size of the left part after the partition; the + n is the partition (scans over the whole range)", "Partition costs Θ(n); what happens next depends on <em>where the pivot lands</em>. Balanced pivots: T(n) = 2T(n/2) + n → <b>Θ(n log n)</b>. A pivot at an extreme every time: T(n) = T(n−1) + n → <b>Θ(n²)</b>. Median-of-three makes the bad case rare, not impossible.");
+      h += toolCards("tree", [
+        { id: "master", name: "Master Theorem", why: "Only for the balanced case: a = 2, b = 2, c = 1 → Case 2 → Θ(n log n). It says nothing about a lopsided split, because then the recurrence is not of the form a·T(n/b) + n^c." },
+        { id: "subst", name: "Backward substitution", why: "The tool for the worst case: T(n) = T(n−1) + n unrolls to n + (n−1) + … + 1 = n(n+1)/2. Subtractive → substitution, as always." },
+        { id: "tree", name: "Recursion tree", why: "Best here, because the split is data-dependent: draw the tree of THIS run and look at the sizes per level. Each level costs about Σ sizes ≤ n; the question is only how many levels there are — log₂ n (balanced) or n (lopsided)." },
+      ]);
+      h += `<div class="work">${masterBlock(2, 2, 1, `<div class="ln" style="margin-top:4px;color:var(--muted)">(balanced split only — every pivot lands in the middle)</div>`)}
+        <div style="margin-top:8px">${substBlock("BACKWARD SUBSTITUTION — the worst case, T(n) = T(n−1) + n", [`T(n) = T(n−1) + n`, `     = T(n−2) + (n−1) + n`, `     = T(n−3) + (n−2) + (n−1) + n`, `     = T(1) + 2 + 3 + … + n`], "T(n) = n(n+1)/2 − 1 → Θ(n²)   (the pivot peels ONE element off each time — a chain, not a tree)")}</div>
+        <div style="margin-top:8px">${levelBlock(rows, "quick")}<div class="ln" style="margin-top:6px">levels used: ${depthUsed}${n > 1 ? ` — a perfectly balanced tree needs ⌈log₂ ${n}⌉ + 1 = ${balanced}; a chain would need ${n}` : ""}.  Σ size per level ≤ n and shrinks by the pivots placed, so cost ≈ (levels) × n.</div></div>
+        <div style="margin-top:8px">${casesBlock(CASES.quick)}</div></div>`;
+      h += propsBlock(PROPS.quick);
+      const per = rows.map((r) => r.sizes.reduce((s, x) => s + x, 0));
+      h += measured(`about (levels × n) = ${depthUsed} × ${n} = ${depthUsed * n} comparison-scale work if every level were full; the actual Σ sizes per level are ${per.join(", ")} (sum ${per.reduce((s, x) => s + x, 0)})`, `${c.comparisons} comparisons (${c.m3_comparisons} median-of-three), ${c.swaps} swaps${c.self_swaps ? ` (${c.self_swaps} self)` : ""}, max depth ${c.max_depth}`, "Try “already sorted” and “reverse sorted”: median-of-three turns both into good cases for this code.");
+    } else { // radix
+      const d = Math.max(0, last.vars.max_digits || (n ? Math.max(...keysOf(vals).map((x) => String(Math.abs(x)).length)) : 0));
+      h += aHead("W(n) = d · (n + n + 10)", "d = digits of the largest |value|; per pass: n digit reads + n bucket appends + 10 buckets scanned + n writes back", "No recursion and no key comparisons — three nested loops that touch every element once per digit → <b>Θ(d·n)</b>, the same on every input. When d is a constant (e.g. all keys < 10⁴) that is <b>Θ(n)</b>; when keys can be as large as nᶜ, d = Θ(log n) and it is Θ(n log n) like the comparison sorts.");
+      h += loopCards("sum", "The only tool needed: for each of d digit places, one loop over the n elements and one over the 10 buckets. Multiply, do not sum a series.", "There is no recursion, so there is no recurrence to write.", "No recurrence, nothing to apply it to.", true);
+      h += `<div class="work">${substBlock("LOOP COUNT", [`get_max_length: one loop over n elements (each get_length costs its digit count) → Θ(n·d)`, `for digit_index in range(d):           → d passes`, `    for num in array:                  → n digit extractions + n appends`, `    for bucket in buckets: for num in bucket: → 10 + n writes`, `total = d · (n + n + 10) + n·d = Θ(d·n)   (n ≥ 10 makes the 10 disappear)`, `for this input: d = ${d}, n = ${n}  →  ${d}·${n} = ${d * n} digit extractions and ${d * n} writes`], "W(n) = Θ(d·n) — linear in n for fixed-width keys; 0 comparisons")}
+        <div style="margin-top:8px"><h3>PASS TABLE — THIS RUN</h3><table><tr><th>pass</th><th>digit</th><th>extractions</th><th>writes</th></tr>${Array.from({ length: d }, (_, p) => `<tr><td>${p + 1}</td><td>10^${p}</td><td>${n}</td><td>${n}</td></tr>`).join("")}<tr class="tot"><td>total</td><td>d = ${d}</td><td>${d * n}</td><td>${d * n}</td></tr></table></div>
+        <div style="margin-top:8px">${casesBlock(CASES.radix)}</div></div>`;
+      h += propsBlock(PROPS.radix);
+      h += measured(`<b>${d} passes</b>, <b>${d * n} digit extractions</b>, <b>${d * n} writes</b>, 0 comparisons`, `${c.passes} passes, ${c.digit_ops} digit extractions, ${c.writes} writes, ${c.comparisons} comparisons`, "Radix sort beats the Ω(n log n) lower bound because it never compares keys — it reads their digits instead.");
+    }
+    $("analysis").innerHTML = h;
+    buildCompareTable(k);
+  }
+
+  const COMPARE = [
+    ["selection", "Selection", "Θ(n²)", "Θ(n²)", "Θ(n²)", "O(1)", "yes", "no", "n(n−1)/2 comparisons always; n swaps"],
+    ["bubble", "Bubble (as written)", "Θ(n²)", "Θ(n²)", "Θ(n²)", "O(1)", "yes", "yes", "no early exit; swaps = inversions"],
+    ["bubble_early", "Bubble (early exit)", "Θ(n)", "Θ(n²)", "Θ(n²)", "O(1)", "yes", "yes", "commented-out version; breaks after a clean pass"],
+    ["insertion", "Insertion", "Θ(n)", "Θ(n²)", "Θ(n²)", "O(1)", "yes", "yes", "comparisons = inversions + (n−1) − z; adaptive"],
+    ["merge", "Merge", "Θ(n log n)", "Θ(n log n)", "Θ(n log n)", "Θ(n)", "no", "no (strict <)", "T(n) = 2T(n/2) + n; Master Case 2"],
+    ["quick", "Quick (median-of-3)", "Θ(n log n)", "Θ(n log n)", "Θ(n²)", "Θ(log n) stack (Θ(n) worst)", "yes", "no", "T(n) = T(k) + T(n−k−1) + n; worst = chain"],
+    ["radix", "Radix (LSD, base 10)", "Θ(d·n)", "Θ(d·n)", "Θ(d·n)", "Θ(n + 10)", "no", "yes", "0 comparisons; d = digits of max"],
+  ];
+  function buildCompareTable(k) {
+    const el = $("compare"); if (!el) return;
+    el.innerHTML = `<tr><th>sort</th><th>best</th><th>average</th><th>worst</th><th>extra space</th><th>in place</th><th>stable</th><th>as written in your file</th></tr>` +
+      COMPARE.map((r) => `<tr class="${r[0] === k || (k === "quick_nowrap" && r[0] === "quick") ? "cur" : ""}"><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td class="${r[6] === "yes" ? "y" : "n"}">${r[6]}</td><td class="${r[7].startsWith("yes") ? "y" : "n"}">${r[7]}</td><td class="note-cell">${r[8]}</td></tr>`).join("");
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* render                                                              */
+  /* ------------------------------------------------------------------ */
+  let lastCnt = null, lastVars = null;
+  function render(ev, prev) {
+    const k = key(), fam = FAMILY[k];
+    if (fam === "array") renderArray(ev, k); else if (fam === "tree") renderTree(ev); else renderBuckets(ev);
+    $("ex-now").innerHTML = ev.text; $("ex-inv").innerHTML = ev.inv; $("ex-stab").textContent = ev.stab || "";
+    renderCounters(ev, prev, k); renderVars(ev, k);
+    document.querySelectorAll("#code .ln").forEach((l) => l.classList.toggle("hl", +l.dataset.line === ev.line));
+    const hl = document.querySelector("#code .ln.hl"); if (hl) hl.scrollIntoView({ block: "nearest" });
+    $("timeline").value = state.idx; $("pos-i").textContent = state.idx;
+    const pl = k === "merge" ? `depth ${ev.depth}` : k.startsWith("quick") ? `depth ${ev.depth}` : k === "radix" ? (ev.p >= 0 && ev.k !== "done" ? `pass ${ev.p + 1}` : "") : (ev.p >= 0 && ev.k !== "done" ? `${k === "insertion" ? "index" : "i"} = ${ev.p}` : "");
+    $("pos-k").textContent = ev.k.replace(/_/g, " ") + (pl ? "  ·  " + pl : "");
+    $("btn-prev").disabled = state.idx === 0; $("btn-prev-pass").disabled = state.idx === 0;
+    const atEnd = state.idx >= state.events.length - 1; $("btn-next").disabled = atEnd; $("btn-next-pass").disabled = atEnd; $("btn-end").disabled = atEnd;
+    renderEqOrder(ev);
+  }
+
+  function renderArray(ev, k) {
+    const n = ev.slots.length, R = ev.roles, v = ev.vars, isQuick = k.startsWith("quick");
+    const set = (a) => new Set(a || []);
+    const finalSet = set(R.final), sortedSet = set(R.sorted), shiftedSet = set(R.shifted), cmpSet = set(R.cmp), movedSet = set(R.moved), leSet = set(R.le), geSet = set(R.ge);
+    for (let i = 0; i < n; i++) {
+      const el = state.slotEls[i], s = ev.slots[i];
+      el.querySelector(".val").textContent = s.key; el.querySelector(".tag").textContent = s.tag == null ? "" : s.tag;
+      const cls = ["slot"]; let cap = "";
+      const isHole = R.hole === i && s.stale;
+      if (finalSet.has(i)) { cls.push("final"); cap = "final"; }
+      else if (sortedSet.has(i)) { cls.push("sorted"); cap = "sorted"; }
+      if (shiftedSet.has(i)) { cls.push("shifted"); cap = "shifted"; }
+      if (isHole) { cls.push("hole"); cap = "hole (stale)"; }
+      if (isQuick && !finalSet.has(i)) {
+        if (R.range && (i < R.range[0] || i > R.range[1])) cls.push("outside");
+        if (leSet.has(i)) { cls.push("le"); cap = "≤ pivot"; }
+        if (geSet.has(i)) { cls.push("ge"); cap = "≥ pivot"; }
+        if (R.mid === i && ["mid", "m3_compare", "m3_swap", "pivot"].includes(ev.k)) { cls.push("mid"); cap = "mid"; }
+      }
+      if (k === "selection" && R.min === i && !finalSet.has(i)) { cls.push("min"); cap = "min so far"; }
+      if (cmpSet.has(i)) { cls.push("cmp"); cap = (k === "selection" && R.min === i) ? "min (cmp)" : "comparing"; }
+      if (movedSet.has(i)) cls.push("moved");
+      el.className = cls.join(" "); el.querySelector(".cap").textContent = cap; el.querySelector(".lock").textContent = finalSet.has(i) ? "✓" : "";
+    }
+    const h = state.heldEl;
+    const heldSlot = k === "insertion" ? ev.held : (isQuick ? ev.pivot : null);
+    if (heldSlot) {
+      const at = k === "insertion" ? (R.hole != null ? R.hole : v.index) : v.mid;
+      h.style.display = ""; h.style.left = left(at) + "px";
+      h.querySelector(".val").textContent = heldSlot.key; h.querySelector(".tag").textContent = heldSlot.tag == null ? "" : heldSlot.tag;
+      h.className = "held" + (ev.k === "compare" || ev.k === "scan_compare" ? " cmp" : "");
+      h.querySelector(".cap").textContent = k === "insertion" ? (ev.k === "compare" ? "key · cmp" : "key") : "pivot";
+    } else { h.style.display = "none"; h.className = "held"; h.querySelector(".val").textContent = ""; h.querySelector(".tag").textContent = ""; }
+    document.querySelectorAll("#ptr-rows .ptr").forEach((p) => {
+      const nm = p.dataset.name; let val = v[nm];
+      if (isQuick && nm === "mid" && !["mid", "m3_compare", "m3_swap", "pivot"].includes(ev.k)) val = null;
+      if (val == null || val >= n || val < -1 || (val < 0 && k !== "insertion")) { p.classList.remove("show"); return; }
+      p.classList.add("show"); p.style.left = left(val) + "px"; p.classList.toggle("off", val < 0); p.querySelector(".lbl").textContent = val < 0 ? `${nm} = ${val}` : nm;
+    });
+    const br = $("bracket"), bl = $("bracket-label"); let lo = null, hi = null, label = "";
+    if (k === "selection" && ev.k !== "done" && n > 0) { lo = R.final.length; hi = n - 1; label = `unsorted: data[${lo}..${hi}]`; }
+    else if (k.startsWith("bubble") && v.i != null && v.bound != null && ev.k !== "done" && ev.k !== "early_exit") { lo = 0; hi = v.bound; label = `pass i = ${v.i}: data[0..${hi}]  (n−i−1 = ${v.bound})`; }
+    else if (k === "insertion" && R.sorted.length) { lo = 0; hi = R.sorted.length - 1; label = `sorted prefix data[0..${hi}]`; }
+    else if (isQuick && R.range && ev.k !== "done") { lo = R.range[0]; hi = R.range[1]; label = `${k === "quick" ? "quicksort_inner" : "quicksort"}(first = ${lo}, last = ${hi})`; }
+    if (lo != null && hi >= lo) { br.classList.add("show"); br.style.left = (left(lo) - 4) + "px"; br.style.width = (left(hi) + state.tile - left(lo) + 8) + "px"; bl.textContent = label; } else br.classList.remove("show");
+    const sl = $("stackline");
+    if (isQuick) { sl.classList.add("show"); const fn = k === "quick" ? "quicksort_inner" : "quicksort"; sl.innerHTML = `call stack (depth ${ev.depth}): ` + (ev.stack.length ? ev.stack.map((f, i) => (i === ev.stack.length - 1 ? `<b><code>${fn}(${f.first}, ${f.last})</code></b>` : `<code>${fn}(${f.first}, ${f.last})</code>`)).join(" › ") : "<code>—</code>") + `  ·  max depth so far ${ev.cnt.max_depth}`; }
+  }
+
+  function renderTree(ev) {
+    const T = state.tree, N = ev.nodes, cur = ev.cur, R = ev.roles;
+    const kids = N.filter((x) => x.parent === cur);
+    Object.values(T.nodesEl).forEach((o) => { o.box.style.display = "none"; o.box.className = "node pending"; o.tiles.forEach((t) => { t.className = "tslot"; t.querySelector(".val").textContent = ""; t.querySelector(".tag").textContent = ""; t.querySelector(".cap").textContent = ""; }); });
+    N.forEach((nd) => {
+      const o = T.nodesEl[nd.id]; o.box.style.display = "";
+      o.box.className = "node " + nd.state + (nd.id === cur && ev.k !== "done" ? " active" : "");
+      nd.vals.forEach((s, i) => {
+        const t = o.tiles[i]; t.querySelector(".val").textContent = s.key; t.querySelector(".tag").textContent = s.tag == null ? "" : s.tag;
+        const cls = ["tslot"]; let cap = "";
+        if (nd.state === "sorted" || nd.state === "released") cls.push("merged");
+        if (nd.id === cur && (nd.state === "merging")) { if (i < R.merged_upto) cls.push("merged"); else cls.push("unwritten"); if (R.out === i && ev.k !== "merged") { cls.push("out"); cap = "i+j"; } if (ev.k === "take" && R.out === i) cls.push("took"); }
+        if (nd.id === cur && ev.k === "compare") { /* parent */ }
+        if (kids.length === 2 && (nd.id === kids[0].id || nd.id === kids[1].id) && ["merge_start", "compare", "take"].includes(ev.k)) {
+          const isA = nd.id === kids[0].id, ptr = isA ? R.left : R.right;
+          const consumed = isA ? ev.vars.i : ev.vars.j;
+          if (i < consumed) cls.push("consumed");
+          if (ptr === i) { cap = isA ? "i" : "j"; if (ev.k === "compare") cls.push("cmp"); }
+        }
+        t.className = cls.join(" "); t.querySelector(".cap").textContent = cap;
+      });
+    });
+    const sl = $("stackline"); sl.classList.add("show");
+    const chain = []; let x = N[cur]; while (x) { chain.unshift(x); x = x.parent == null ? null : N[x.parent]; }
+    sl.innerHTML = `call chain (depth ${ev.depth}): ` + chain.map((nd, i) => (i === chain.length - 1 ? `<b><code>mergeSort(S[${nd.start}..${nd.start + nd.len - 1}])</code></b>` : `<code>mergeSort(S[${nd.start}..${nd.start + nd.len - 1}])</code>`)).join(" › ") + `  ·  aux elements alive ${ev.cnt.aux_live}`;
+  }
+
+  function digitsHtml(keyv, di, md) {
+    const neg = keyv < 0, s = String(Math.abs(keyv)), pad = Math.max(0, md - s.length);
+    let h = neg ? "−" : "";
+    for (let p = 0; p < pad; p++) { const pos = md - 1 - p; h += `<span class="dg pad ${pos === di ? "on" : ""}">0</span>`; }
+    for (let q = 0; q < s.length; q++) { const pos = s.length - 1 - q; h += `<span class="dg ${pos === di ? "on" : ""}">${s[q]}</span>`; }
+    return h;
+  }
+  function renderBuckets(ev) {
+    const B = state.bucket, R = ev.roles, v = ev.vars, md = Math.max(1, v.max_digits || maxDigits());
+    const di = ["pass_start", "digit", "append", "collect_start", "write"].includes(ev.k) ? v.digit_index : null;
+    const taken = new Set(R.taken), written = new Set(R.written);
+    ev.slots.forEach((s, i) => {
+      const el = B.slots[i]; el.querySelector(".val").innerHTML = digitsHtml(s.key, di, md);
+      const cls = ["slot"]; let cap = "";
+      if (ev.k === "done") { cls.push("final"); cap = "final"; }
+      if (taken.has(i) && !["collect_start", "write", "pass_end"].includes(ev.k)) cls.push("taken");
+      if (["collect_start", "write"].includes(ev.k)) { if (written.has(i)) { cls.push("written"); } else cls.push("taken"); }
+      if (ev.k === "pass_end") { cls.push("written"); }
+      if (R.cmp === i) { cls.push("cmp"); cap = `digit ${v.bucket_index}`; }
+      el.className = cls.join(" "); el.querySelector(".cap").textContent = cap; el.querySelector(".lock").textContent = ev.k === "done" ? "✓" : "";
+    });
+    // how many items have been consumed from each bucket during collection
+    let remaining = R.collected || 0;
+    B.buckets.forEach((b, bi) => {
+      const items = ev.buckets[bi];
+      b.box.className = "bucket" + (R.bucket === bi && ["digit", "append"].includes(ev.k) ? " target" : "") + (R.bucket === bi && ev.k === "write" ? " draining" : "");
+      b.cells.forEach((c, p) => {
+        if (p < items.length) { c.style.display = ""; c.querySelector(".val").innerHTML = digitsHtml(items[p].key, di, md); c.querySelector(".tag").textContent = ""; c.className = "bslot" + (remaining > 0 ? " consumed" : ""); if (remaining > 0) remaining -= 1; }
+        else { c.style.display = "none"; c.className = "bslot"; c.querySelector(".val").textContent = ""; }
+      });
+    });
+  }
+
+  function renderCounters(ev, prev, k) {
+    const defs = { selection: [["comparisons", "comparisons", "key vs key"], ["swaps", "swaps", "one per pass (incl. self-swaps)"], ["self_swaps", "self-swaps", "min_idx == i"], ["writes", "array writes", "= 2 × swaps"]],
+      bubble: [["comparisons", "comparisons", "key vs key"], ["swaps", "swaps", "2 writes each"], ["writes", "array writes", "= 2 × swaps"]],
+      insertion: [["comparisons", "comparisons", "key vs key"], ["shifts", "shifts", "1 write each"], ["placements", "placements", "always n−1"], ["writes", "array writes", "= shifts + placements"]],
+      merge: [["comparisons", "comparisons", "S1[i] < S2[j]"], ["writes", "writes into S", "1 per merged element"], ["max_depth", "max depth", "recursion"], ["aux_live", "aux alive", "elements in S1/S2 copies"], ["aux_peak", "aux peak", "max alive"]],
+      quick: [["comparisons", "comparisons", "scans + median-of-3"], ["m3_comparisons", "median-of-3", "3 per partition"], ["swaps", "swaps", "incl. self-swaps"], ["max_depth", "max depth", "call stack"]],
+      radix: [["comparisons", "comparisons", "none — ever"], ["passes", "passes", "= max_digits"], ["digit_ops", "digit extractions", "n per pass"], ["writes", "array writes", "n per pass"]] };
+    defs.bubble_early = defs.bubble; defs.quick_nowrap = defs.quick;
+    const cdef = defs[k], cw = $("counters");
+    if (cw.dataset.algo !== k) { cw.dataset.algo = k; cw.innerHTML = cdef.map((d) => `<div class="stat" data-k="${d[0]}"><div class="v">0</div><div class="l">${d[1]}</div><div class="s">${d[2]}</div></div>`).join(""); lastCnt = null; }
+    cdef.forEach((d) => { const el = cw.querySelector(`[data-k="${d[0]}"]`), val = ev.cnt[d[0]], vEl = el.querySelector(".v");
+      if (vEl.textContent !== String(val)) { vEl.textContent = val; if (prev && lastCnt && val > lastCnt[d[0]]) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); } } });
+    lastCnt = ev.cnt;
+  }
+  function renderVars(ev, k) {
+    const v = ev.vars;
+    const vdef = { selection: ["i", "j", "min_idx", "n"], bubble: ["i", "j", "bound", "n"], bubble_early: ["i", "j", "swapped", "bound", "n"], insertion: ["index", "key", "j", "n"],
+      merge: ["n", "mid", "i", "j", "depth"], quick: ["first", "last", "left", "right", "mid", "pivot", "depth"], quick_nowrap: ["first", "last", "left", "right", "mid", "pivot", "depth"],
+      radix: ["digit_index", "pow10", "num", "bucket_index", "array_index", "max_digits"] }[k];
+    const VL = { bound: "n−i−1", depth: "depth", n: k === "merge" ? "n = len(S)" : "n" };
+    $("vars").innerHTML = vdef.map((nm) => { const val = nm === "depth" ? ev.depth : v[nm]; const changed = lastVars && lastVars.k === k && JSON.stringify(lastVars.v[nm]) !== JSON.stringify(val);
+      const txt = val == null ? "None" : typeof val === "boolean" ? tf(val) : String(val);
+      return `<div class="var ${changed ? "changed" : ""}"><div class="n">${VL[nm] || nm}</div><div class="v ${val == null ? "none" : ""}">${txt}</div></div>`; }).join("");
+    lastVars = { k, v: Object.assign({ depth: ev.depth }, v) };
+  }
+  function renderEqOrder(ev) {
+    const box = $("eqorder"); const slots = ev.slots || (ev.nodes ? ev.nodes[0].vals : []);
+    if (!slots.some((s) => s.tag != null)) { box.classList.remove("show"); return; }
+    box.classList.add("show");
+    const groups = (ss) => { const g = {}; ss.forEach((s) => { (g[s.key] = g[s.key] || []).push(s.tag); }); return g; };
+    const first = state.events[0]; const orig = groups(first.slots || first.nodes[0].vals);
+    const now = groups(slots.filter((s) => !s.stale).concat(ev.held ? [ev.held] : []));
+    const fmtG = (g, ref) => Object.keys(g).sort((a, b) => a - b).filter((x) => g[x].length > 1).map((x) => { const ch = ref && ref[x] && ref[x].join("") !== g[x].join(""); return `<code>${x}: ${g[x].join("→")}</code>${ch ? " <b style='color:var(--key)'>(order changed)</b>" : ""}`; }).join(" · ");
+    box.innerHTML = `Equal-key order — original: ${fmtG(orig)}  ·  now: ${fmtG(now, orig)}`;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* movement (ghost tiles)                                              */
+  /* ------------------------------------------------------------------ */
+  function dur() { return document.documentElement.classList.contains("reduce-motion") ? 0 : Math.max(120, 460 / state.speed); }
+  function ghost(html, from, to, w, h) { const g = document.createElement("div"); g.className = "ghost"; g.style.left = from.x + "px"; g.style.top = from.y + "px"; g.style.width = w + "px"; g.style.height = h + "px"; g.innerHTML = html; $("stage").appendChild(g); state.ghosts.push(g); void g.offsetWidth; g.style.transform = `translate(${to.x - from.x}px, ${to.y - from.y}px)`; }
+  function cancelGhost() { if (state.ghostTimer) { clearTimeout(state.ghostTimer); state.ghostTimer = null; } state.ghosts.forEach((g) => g.remove()); state.ghosts = []; document.querySelectorAll("#stage .inflight").forEach((e) => e.classList.remove("inflight")); }
+  function animateMove(prev, ev, done) {
+    const m = ev.move, D = dur(), k = key(), fam = FAMILY[k];
+    if (!m || D === 0) { done(); return; }
+    $("stage").style.setProperty("--dur", D + "ms");
+    const fs = fontFor(state.tile);
+    const th = (s, f) => tileHtml(s, f || fs);
+    if (fam === "array") {
+      const slotXY = (i) => ({ x: left(i), y: $("slot-row").offsetTop }), heldXY = (i) => ({ x: left(i), y: $("held-row").offsetTop + 22 }), t = state.tile;
+      if (m.type === "swap") { if (m.a !== m.b) { state.slotEls[m.a].classList.add("inflight"); state.slotEls[m.b].classList.add("inflight"); ghost(th(prev.slots[m.a]), slotXY(m.a), slotXY(m.b), t, t); ghost(th(prev.slots[m.b]), slotXY(m.b), slotXY(m.a), t, t); } }
+      else if (m.type === "shift") { state.slotEls[m.to].classList.add("inflight"); ghost(th(prev.slots[m.from]), slotXY(m.from), slotXY(m.to), t, t); }
+      else if (m.type === "pickup") ghost(th(prev.slots[m.from]), slotXY(m.from), heldXY(m.from), t, t);
+      else if (m.type === "place") { state.slotEls[m.to].classList.add("inflight"); state.heldEl.classList.add("inflight"); ghost(th(prev.held), heldXY(prev.roles.hole != null ? prev.roles.hole : prev.vars.index), slotXY(m.to), t, t); }
+    } else if (fam === "tree" && m.type === "take") {
+      const T = state.tree, pos = (nid, i) => { const o = T.nodesEl[nid]; return { x: o.x + T.pad + i * (T.tt + T.gap), y: o.y + T.pad }; };
+      const src = prev.nodes[m.from.node].vals[m.from.idx];
+      T.nodesEl[m.to.node].tiles[m.to.idx].classList.add("inflight");
+      ghost(th(src, fontFor(T.tt)), pos(m.from.node, m.from.idx), pos(m.to.node, m.to.idx), T.tt, T.tt);
+    } else if (fam === "bucket") {
+      const B = state.bucket, md = Math.max(1, ev.vars.max_digits || 1);
+      const bhtml = (s) => `<div class="tile" style="font-size:${Math.min(16, Math.round(B.bh * 0.55))}px;border-width:2px;border-radius:8px"><span class="val">${digitsHtml(s.key, ev.vars.digit_index, md)}</span></div>`;
+      const arrXY = (i) => ({ x: left(i), y: B.arrTop }), bXY = (b, p) => ({ x: B.buckets[b].x + 5, y: B.buckets[b].y + 6 + p * (B.bh + 4) });
+      if (m.type === "to_bucket") { B.buckets[m.bucket].cells[m.pos].classList.add("inflight"); ghost(bhtml(prev.slots[m.from]), arrXY(m.from), bXY(m.bucket, m.pos), B.bw - 10, B.bh); }
+      else if (m.type === "from_bucket") { B.slots[m.to].classList.add("inflight"); ghost(bhtml(prev.buckets[m.bucket][m.pos]), bXY(m.bucket, m.pos), arrXY(m.to), B.bw - 10, B.bh); }
+    }
+    state.ghostTimer = setTimeout(() => { cancelGhost(); done(); }, D + 30);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* navigation / playback / predict                                     */
+  /* ------------------------------------------------------------------ */
+  const isBoundary = (ev) => ["iter_end", "early_exit", "merged", "return", "base", "pass_end", "done"].includes(ev.k);
+  function goTo(i, animate) {
+    i = Math.max(0, Math.min(state.events.length - 1, i)); cancelGhost();
+    const prev = state.events[state.idx], ev = state.events[i], forward = i === state.idx + 1; state.idx = i;
+    if (animate && forward && ev.move) { animateMove(prev, ev, () => render(ev, prev)); $("ex-now").innerHTML = ev.text; document.querySelectorAll("#code .ln").forEach((l) => l.classList.toggle("hl", +l.dataset.line === ev.line)); }
+    else render(ev, prev);
+  }
+  function stepNext(animate = true) { const next = state.idx + 1; if (next >= state.events.length) return false; if (state.predict && state.events[next].predict && state.pending !== next) { showPredict(next); return false; } hidePredict(); goTo(next, animate); return true; }
+  function stepPrev() { hidePredict(); goTo(state.idx - 1, false); }
+  function nextPass() { hidePredict(); let i = state.idx + 1; while (i < state.events.length - 1 && !isBoundary(state.events[i])) i++; goTo(i, false); }
+  function prevPass() { hidePredict(); let i = state.idx - 1; while (i > 0 && !isBoundary(state.events[i])) i--; goTo(i, false); }
+  function reset() { stop(); hidePredict(); goTo(0, false); }
+  function dwell(ev) { const base = { compare: 1500, scan_compare: 1400, m3_compare: 1400, swap: 1200, m3_swap: 1100, shift: 1000, place: 1000, take: 1100, key_pickup: 1100, digit: 1100, append: 900, write: 900, min_update: 900, iter_start: 900, iter_end: 1300, early_exit: 1600, split: 1300, merge_start: 1200, merged: 1300, call: 900, base: 900, pivot: 1300, partition_done: 1500, done: 0, start: 600 }[ev.k] || 900; return base / state.speed + (ev.move ? dur() : 0); }
+  function play() { if (state.idx >= state.events.length - 1) goTo(0, false); state.playing = true; $("btn-play").textContent = "⏸ Pause"; $("btn-play").setAttribute("aria-pressed", "true");
+    const tick = () => { if (!state.playing) return; if (!stepNext(true)) { stop(); return; } state.timer = setTimeout(tick, dwell(state.events[state.idx])); }; tick(); }
+  function stop() { state.playing = false; if (state.timer) { clearTimeout(state.timer); state.timer = null; } $("btn-play").textContent = "▶ Play"; $("btn-play").setAttribute("aria-pressed", "false"); }
+  function togglePlay() { state.playing ? stop() : play(); }
+  function showPredict(next) { state.pending = next; $("predict-q").textContent = "Predict: " + state.events[next].predict; $("predict").classList.add("show"); }
+  function hidePredict() { state.pending = -1; $("predict").classList.remove("show"); }
+  function reveal() { if (state.pending === -1) return; const n = state.pending; hidePredict(); goTo(n, true); if (state.playing) state.timer = setTimeout(() => { if (state.playing) play(); }, dwell(state.events[state.idx])); }
+
+  /* ------------------------------------------------------------------ */
+  /* inputs                                                              */
+  /* ------------------------------------------------------------------ */
+  function fillInputSelect() {
+    const sel = $("sel-input"), names = inputsFor(key());
+    sel.innerHTML = names.map((nm, i) => `<option value="${nm}">${nm === "custom" || nm === "random" ? LBL[nm] : `${i + 1} · ${LBL[nm]}`}</option>`).join("");
+    if (!names.includes(state.inputName)) { state.inputName = names[0]; state.values = E.PRESETS[names[0]].slice(); }
+    sel.value = state.inputName;
+    $("custom-row").classList.toggle("show", state.inputName === "custom" || state.inputName === "random");
+  }
+  function setInput(name) { state.inputName = name; $("custom-row").classList.toggle("show", name === "custom" || name === "random"); if (E.PRESETS[name]) { state.values = E.PRESETS[name].slice(); rebuild(); } else applyCustom(); }
+  function applyCustom() {
+    const msg = $("custom-msg"); msg.textContent = "";
+    try {
+      let vals;
+      if (state.inputName === "random") { const n = Math.max(0, Math.min(12, parseInt($("rand-n").value, 10) || 0)); vals = E.seededRandom(parseInt($("rand-seed").value, 10) || 0, n, state.algo === "radix" ? 0 : -20, state.algo === "radix" ? 999 : 99); $("custom-text").value = vals.join(", "); }
+      else { vals = E.parseInput($("custom-text").value); if (vals.length > 12) { msg.textContent = "Showing the first 12 values."; vals = vals.slice(0, 12); } }
+      if (state.algo === "radix") { if (vals.some((x) => Array.isArray(x))) { msg.textContent = "Radix sort takes plain integers (no tags)."; vals = vals.map((x) => Array.isArray(x) ? x[0] : x); } if (vals.some((x) => x < 0)) msg.textContent = "Note: the source sorts by abs(num), so negatives come out by magnitude."; if (vals.some((x) => !Number.isInteger(x))) { msg.textContent = "Radix sort takes integers."; return; } }
+      state.values = vals; rebuild();
+    } catch (e) { msg.textContent = "Could not parse: " + e.message; }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* wiring                                                              */
+  /* ------------------------------------------------------------------ */
+  function setAlgo(a) { state.algo = a; document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.algo === a))); lastVars = null; fillInputSelect(); if (state.inputName === "custom" || state.inputName === "random") applyCustom(); else rebuild(); }
+  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => setAlgo(b.dataset.algo)));
+  $("sel-input").addEventListener("change", (e) => setInput(e.target.value));
+  $("btn-apply").addEventListener("click", applyCustom);
+  $("custom-text").addEventListener("keydown", (e) => { if (e.key === "Enter") applyCustom(); });
+  $("chk-early").addEventListener("change", (e) => { state.early = e.target.checked; rebuild(); });
+  $("chk-nowrap").addEventListener("change", (e) => { state.nowrap = e.target.checked; fillInputSelect(); rebuild(); });
+  $("chk-predict").addEventListener("change", (e) => { state.predict = e.target.checked; if (!state.predict) hidePredict(); });
+  $("chk-motion").addEventListener("change", (e) => { document.documentElement.classList.toggle("reduce-motion", e.target.checked); cancelGhost(); render(state.events[state.idx], null); });
+  function toggleHelp(force) { const h = $("help"); const show = force != null ? force : !h.classList.contains("show"); h.classList.toggle("show", show); $("btn-help").setAttribute("aria-expanded", String(show)); }
+  $("btn-help").addEventListener("click", () => toggleHelp());
+  $("btn-reset").addEventListener("click", reset);
+  $("btn-prev").addEventListener("click", () => { stop(); stepPrev(); });
+  $("btn-next").addEventListener("click", () => { stop(); stepNext(true); });
+  $("btn-prev-pass").addEventListener("click", () => { stop(); prevPass(); });
+  $("btn-next-pass").addEventListener("click", () => { stop(); nextPass(); });
+  $("btn-end").addEventListener("click", () => { stop(); hidePredict(); goTo(state.events.length - 1, false); });
+  $("btn-play").addEventListener("click", togglePlay);
+  $("btn-reveal").addEventListener("click", reveal);
+  $("speed").addEventListener("input", (e) => { state.speed = parseFloat(e.target.value); $("speed-v").textContent = state.speed + "×"; });
+  $("timeline").addEventListener("input", (e) => { stop(); hidePredict(); goTo(parseInt(e.target.value, 10), false); });
+  document.addEventListener("keydown", (e) => {
+    const t = e.target; if (t && ((t.tagName === "INPUT" && t.type !== "range" && t.type !== "checkbox") || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+    const k = e.key;
+    if (k === " ") { e.preventDefault(); togglePlay(); }
+    else if (k === "ArrowRight") { e.preventDefault(); stop(); if (e.shiftKey) nextPass(); else if (state.pending !== -1) reveal(); else stepNext(true); }
+    else if (k === "Enter" && state.pending !== -1) { e.preventDefault(); reveal(); }
+    else if (k === "ArrowLeft") { e.preventDefault(); stop(); if (e.shiftKey) prevPass(); else stepPrev(); }
+    else if (k === "Home") { e.preventDefault(); reset(); }
+    else if (k === "End") { e.preventDefault(); stop(); hidePredict(); goTo(state.events.length - 1, false); }
+    else if ("123456".includes(k) && k.length === 1) setAlgo(["selection", "bubble", "insertion", "merge", "quick", "radix"][+k - 1]);
+    else if (k === "+" || k === "=") { $("speed").value = Math.min(4, state.speed + 0.25); $("speed").dispatchEvent(new Event("input")); }
+    else if (k === "-" || k === "_") { $("speed").value = Math.max(0.25, state.speed - 0.25); $("speed").dispatchEvent(new Event("input")); }
+    else if (k === "p" || k === "P") { $("chk-predict").checked = !$("chk-predict").checked; $("chk-predict").dispatchEvent(new Event("change")); }
+    else if (k === "m" || k === "M") { $("chk-motion").checked = !$("chk-motion").checked; $("chk-motion").dispatchEvent(new Event("change")); }
+    else if (k === "?") toggleHelp();
+    else if (k === "Escape") toggleHelp(false);
+  });
+  let resizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { cancelGhost(); buildStage(); render(state.events[state.idx], null); }, 120); });
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) { $("chk-motion").checked = true; document.documentElement.classList.add("reduce-motion"); }
+
+  /* ---- embedded / flow layout: D2L and other LMSs show uploaded HTML inside a frame ---- */
+  (function () {
+    const root = document.documentElement, bar = document.getElementById("embed-bar"), btn = document.getElementById("btn-layout"), link = document.getElementById("open-full");
+    let embedded = false; try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
+    const q = new URLSearchParams(location.search);
+    const setFlow = (on) => { root.classList.toggle("flow", on); root.classList.toggle("fit", !on); if (btn) btn.textContent = on ? "Use fit-window layout" : "Use scrolling layout"; try { const ev = new Event("resize"); window.dispatchEvent(ev); } catch (e) {} };
+    setFlow(embedded || q.get("layout") === "flow");
+    if (bar && !embedded) bar.style.display = "none";
+    if (link) { try { const u = new URL(location.href); u.searchParams.set("layout", "fit"); u.hash = ""; link.href = u.toString(); } catch (e) { link.href = location.href; }
+      link.addEventListener("click", (e) => { e.preventDefault(); const w = window.open(link.href, "_blank"); if (!w) { alert("Your browser blocked the new window. Right-click the link and choose \"Open in new tab\", or use the layout button instead."); } }); }
+    if (btn) btn.addEventListener("click", () => setFlow(!root.classList.contains("flow")));
+  })();
+
+  window.__anim = { state, key, goTo, stepNext, stepPrev, nextPass, prevPass, reset, play, stop, setAlgo, setInput, applyCustom, reveal };
+  fillInputSelect(); rebuild();
+})();
+</script>
+</body>
+</html>
