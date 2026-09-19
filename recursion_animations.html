@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSE 331 · Recursion Animations</title>
+<meta name="description" content="Recursive linear search, binary search, power, find_min (peel and halves), Fibonacci and recurse/recurse2 traced from the exact lecture code, with each recurrence and the best way to solve it. Offline, single file.">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#15181d; --muted:#5b6470; --line:#cfd5dd;
+  --accent:#1f5fbf; --accent-ink:#ffffff;
+  --cmp:#d97706; --cmp-bg:#fff3e0;
+  --min:#1d4ed8; --min-bg:#dbe7ff;
+  --final:#15803d; --final-bg:#dcf5e3;
+  --sorted:#7c3aed; --sorted-bg:#efe6ff;
+  --shift:#b45309; --shift-bg:#fdf1d6;
+  --hole:#6b7280; --hole-bg:#f1f3f5;
+  --key:#be185d; --key-bg:#ffe1ec;
+  --le:#1d4ed8; --le-bg:#dbe7ff; --ge:#b45309; --ge-bg:#fdf1d6;
+  --node:#94a3b8; --node-active:#1f5fbf; --node-sorted:#15803d;
+  --code-bg:#0f172a; --code-ink:#e2e8f0; --code-hl:#334155; --code-hl-border:#fbbf24;
+  --radius:10px; --tile:88px;
+  --dur:420ms;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"],button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+.app{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100vh;gap:10px;padding:10px 14px}
+@media (max-width:1100px){.main{grid-template-columns:1fr !important}}
+
+/* ---------- header ---------- */
+header{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);padding:8px 14px}
+header h1{font-size:20px;margin:0 14px 0 0;white-space:nowrap}
+header h1 small{color:var(--muted);font-weight:normal;font-size:14px;margin-left:8px}
+.tabs{display:flex;gap:4px}
+.tabs button{font-size:15px;font-weight:600;padding:7px 11px}
+.ctl{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.ctl label{color:var(--muted);font-size:14px}
+select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+input[type=text],input[type=number]{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer}
+.toggle input{width:18px;height:18px}
+#custom-row{display:none;flex-basis:100%;gap:10px;align-items:center;flex-wrap:wrap}
+#custom-row.show{display:flex}
+#custom-msg{color:#b91c1c;font-size:14px}
+
+/* ---------- main ---------- */
+.main{display:grid;grid-template-columns:minmax(0,3fr) minmax(360px,2fr);gap:10px;min-height:0}
+.left,.right{overflow:auto;min-height:0;padding-bottom:2px}
+.left,.right{display:flex;flex-direction:column;gap:10px;min-width:0}
+.left>.panel,.right>.panel{flex:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px}
+.panel h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+
+/* ---------- stage ---------- */
+.stage-wrap{position:relative;overflow:hidden}
+.stage{position:relative;height:300px;user-select:none}
+.bracket{position:absolute;top:2px;height:26px;border:2px solid var(--muted);border-bottom:none;
+  border-radius:8px 8px 0 0;transition:left var(--dur),width var(--dur);opacity:0}
+.bracket.show{opacity:1}
+.bracket span{position:absolute;left:50%;top:2px;transform:translate(-50%,0);white-space:nowrap;
+  font-size:13px;color:var(--muted);background:var(--panel);padding:0 6px;line-height:1.3}
+.held-row{position:absolute;top:8px;height:calc(var(--tile) + 30px);left:0;right:0}
+.held{position:absolute;width:var(--tile);height:var(--tile);top:22px;transition:left var(--dur)}
+.held .cap{position:absolute;top:4px;left:8px;right:auto;text-align:left;font-size:11px;font-weight:700;color:var(--key);letter-spacing:.04em;text-transform:uppercase;z-index:1}
+.slot-row{position:absolute;top:60px;height:var(--tile);left:0;right:0}
+.slot{position:absolute;top:0;width:var(--tile);height:var(--tile)}
+.cap{position:absolute;top:-24px;left:0;right:0;text-align:center;font-size:13px;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.idx{position:absolute;top:calc(var(--tile) + 4px);left:0;right:0;text-align:center;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tile{position:absolute;inset:0;border:3px solid var(--ink);border-radius:12px;background:var(--panel);
+  display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;
+  font-variant-numeric:tabular-nums;transition:background-color var(--dur),border-color var(--dur),opacity var(--dur)}
+.tile .tag{font-size:16px;font-weight:600;margin-left:3px;align-self:flex-end;margin-bottom:12px;color:var(--muted)}
+.tile .lock{position:absolute;right:6px;top:4px;font-size:14px}
+.slot.min .tile{border-color:var(--min);background:var(--min-bg)}
+.slot.min .cap{color:var(--min)}
+.slot.cmp .tile{border:4px dashed var(--cmp);background:var(--cmp-bg)}
+.slot.cmp.min .tile{background:var(--min-bg);border-color:var(--min)}
+.slot.cmp .cap{color:var(--cmp)}
+.slot.cmp.min .cap{color:var(--min)}
+.slot.sorted .tile{border-color:var(--sorted);
+  background:repeating-linear-gradient(135deg,var(--sorted-bg) 0 8px,#fff 8px 14px)}
+.slot.sorted .cap{color:var(--sorted)}
+.slot.shifted .tile{border-color:var(--shift);background:var(--shift-bg)}
+.slot.shifted .cap{color:var(--shift)}
+.slot.final .tile{border-color:var(--final);background:var(--final-bg);border-style:solid}
+.slot.final .cap{color:var(--final)}
+.slot.hole .tile{border:3px dashed var(--hole);background:var(--hole-bg);color:var(--hole);opacity:.75}
+.slot.hole .tile .val{text-decoration:line-through;text-decoration-thickness:2px}
+.slot.hole .cap{color:var(--hole)}
+.slot.moved .tile{box-shadow:0 0 0 5px rgba(31,95,191,.35)}
+.slot.inflight .tile{opacity:.25}
+.held .tile{border-color:var(--key);background:var(--key-bg);border-style:solid}
+.held.inflight .tile{opacity:0}
+.ghost{position:absolute;width:var(--tile);height:var(--tile);z-index:5;pointer-events:none;
+  transition:transform var(--dur) cubic-bezier(.4,0,.2,1)}
+.ghost .tile{box-shadow:0 8px 22px rgba(0,0,0,.25);border-color:var(--accent);background:#fff}
+/* pointer rows */
+.ptr-rows{position:absolute;left:0;right:0}
+.ptr{position:absolute;width:var(--tile);height:24px;text-align:center;font-size:15px;font-weight:700;
+  transition:left var(--dur);opacity:0;line-height:1}
+.ptr.show{opacity:1}
+.ptr .arrow{display:block;font-size:13px;line-height:1}
+.ptr[data-name="i"],.ptr[data-name="index"]{color:var(--accent)}
+.ptr[data-name="j"]{color:var(--cmp)}
+.ptr[data-name="min_idx"]{color:var(--min)}
+.ptr.off{color:var(--muted);font-weight:500}
+.empty-note{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px}
+.stage-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.stage-head h2{margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--muted);justify-content:flex-end}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:14px;height:14px;border-radius:4px;border:2px solid var(--ink);display:inline-block}
+.legend .l-cmp{border:2px dashed var(--cmp);background:var(--cmp-bg)}
+.legend .l-min{border-color:var(--min);background:var(--min-bg)}
+.legend .l-final{border-color:var(--final);background:var(--final-bg)}
+.legend .l-sorted{border-color:var(--sorted);background:repeating-linear-gradient(135deg,var(--sorted-bg) 0 3px,#fff 3px 6px)}
+.legend .l-shift{border-color:var(--shift);background:var(--shift-bg)}
+.legend .l-hole{border:2px dashed var(--hole);background:var(--hole-bg)}
+.legend .l-key{border-color:var(--key);background:var(--key-bg)}
+
+/* ---------- explanation + counters ---------- */
+.explain{min-height:84px}
+.explain .now{font-size:21px;line-height:1.35;margin:0 0 4px}
+.explain .inv{font-size:15px;color:var(--muted);margin:0}
+.explain .inv b{color:var(--ink)}
+.explain .stab{margin:8px 0 0;padding:8px 10px;border-left:4px solid var(--key);background:var(--key-bg);font-size:16px;border-radius:0 8px 8px 0}
+.explain .stab:empty{display:none}
+.counters{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:4px 8px;text-align:center}
+.stat .v{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stat .s{font-size:11px;color:var(--muted)}
+.counters-note{font-size:12px;color:var(--muted);margin:4px 0 0}
+.stat.bump .v{animation:bump .35s}
+@keyframes bump{50%{transform:scale(1.18);color:var(--accent)}}
+.eqorder{font-size:15px;color:var(--muted);margin-top:8px;display:none}
+.eqorder.show{display:block}
+.eqorder code{font-size:15px;color:var(--ink)}
+
+/* ---------- code + vars ---------- */
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:8px 0;overflow:auto;max-height:34vh;
+  font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.code .ln{display:flex;padding:0 12px;white-space:pre-wrap}
+.code .ln span:last-child{flex:1;min-width:0;word-break:break-word}
+.code .ln .no{width:34px;color:#64748b;text-align:right;margin-right:14px;flex:none;user-select:none}
+.code .ln.hl{background:var(--code-hl);box-shadow:inset 4px 0 0 var(--code-hl-border)}
+.code .ln.dim{opacity:.55}
+.code-src{font-size:13px;color:var(--muted);margin:6px 0 0}
+details summary{cursor:pointer;color:var(--muted);font-size:14px}
+.vars{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.var{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.var .n{font:600 14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted)}
+.var .v{font:700 22px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.var.changed{border-color:var(--accent);background:#eef4ff}
+.var .v.none{color:var(--muted);font-weight:500}
+.summary table{border-collapse:collapse;width:100%;font-size:15px}
+.summary th,.summary td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.summary th:first-child,.summary td:first-child{text-align:left}
+.summary tr.cur td{background:#eef4ff}
+.summary td.cur{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700}
+.summary .note{font-size:13px;color:var(--muted);margin:6px 0 0}
+.notes{font-size:15px}
+.notes p{margin:4px 0}
+
+/* ---------- transport ---------- */
+footer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px 14px;display:flex;flex-direction:column;gap:6px}
+.transport{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.transport .grp{display:flex;gap:6px;align-items:center}
+.transport button{font-size:16px;padding:6px 11px;min-width:44px}
+#btn-play{min-width:100px}
+.pos{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.pos b{color:var(--ink)}
+.tl-row{display:flex;gap:16px;align-items:center}
+.tl-row .grp{display:flex;gap:12px;align-items:center;flex:none}
+.timeline{position:relative;height:34px;flex:1;min-width:200px}
+.timeline input[type=range]{position:absolute;left:0;right:0;top:8px;width:100%;margin:0;z-index:2}
+.ticks{position:absolute;left:8px;right:8px;top:24px;height:10px;pointer-events:none}
+.tick{position:absolute;top:0;width:2px;height:10px;background:var(--muted);transform:translateX(-1px)}
+.tick.ex{background:var(--final);height:12px}
+.kbd{font-size:13px;color:var(--muted)}
+@media (max-height:820px){.kbd{display:none}}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font:12px ui-monospace,Menlo,monospace;background:#fff}
+/* predict overlay */
+.predict{display:none;border:2px solid var(--accent);background:#eef4ff;border-radius:10px;padding:10px 14px;font-size:18px}
+.predict.show{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.predict .q{flex:1 1 300px}
+.predict .q small{display:block;color:var(--muted);font-size:14px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.help{display:none;position:fixed;inset:auto 14px 14px auto;max-width:460px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:14px 18px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:20;font-size:15px}
+.help.show{display:block}
+.help h3{margin:0 0 8px}
+.help dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0}
+.help dt{white-space:nowrap}
+
+/* quick sort regions */
+.slot.le .tile{border-color:var(--le);background:var(--le-bg)}
+.slot.le .cap{color:var(--le)}
+.slot.ge .tile{border-color:var(--ge);background:var(--ge-bg)}
+.slot.ge .cap{color:var(--ge)}
+.slot.mid .cap{color:var(--accent)}
+.slot.mid .tile{box-shadow:inset 0 0 0 3px var(--accent)}
+.slot.outside .tile{opacity:.45}
+.legend .l-le{border-color:var(--le);background:var(--le-bg)}
+.legend .l-ge{border-color:var(--ge);background:var(--ge-bg)}
+.legend .l-msorted{border-color:var(--final);background:var(--final-bg)}
+.legend .l-node{border-color:var(--node-active);background:#fff}
+.legend .l-released{border-color:var(--node);background:#fff;opacity:.4}
+.legend .l-bucket{border-color:var(--sorted);background:var(--sorted-bg)}
+.ptr[data-name="left"],.ptr[data-name="first"]{color:var(--le)}
+.ptr[data-name="right"],.ptr[data-name="last"]{color:var(--ge)}
+.ptr[data-name="mid"]{color:var(--accent)}
+.stackline{font-size:15px;color:var(--muted);margin-top:8px;display:none;font-variant-numeric:tabular-nums}
+.stackline.show{display:block}
+.stackline code{font-size:15px;color:var(--ink)}
+.stackline b{color:var(--accent)}
+/* merge recursion tree */
+.node{position:absolute;border:2px solid var(--node);border-radius:12px;background:#fff;transition:opacity var(--dur),border-color var(--dur)}
+.node .nlabel{position:absolute;left:6px;top:-9px;font-size:11px;font-weight:700;color:var(--node);background:#fff;padding:0 4px;letter-spacing:.03em}
+.node.active{border-color:var(--node-active);border-width:3px}
+.node.active .nlabel{color:var(--node-active)}
+.node.merging{border-color:var(--cmp);border-width:3px}
+.node.merging .nlabel{color:var(--cmp)}
+.node.sorted{border-color:var(--node-sorted)}
+.node.sorted .nlabel{color:var(--node-sorted)}
+.node.released{opacity:.28}
+.node.pending{border-style:dashed}
+.tslot{position:absolute}
+.tslot .tile{font-size:inherit}
+.tslot .cap{top:auto;bottom:-20px;font-size:12px}
+.tslot.cmp .tile{border:3px dashed var(--cmp);background:var(--cmp-bg)}
+.tslot.cmp .cap{color:var(--cmp)}
+.tslot.out .tile{border:3px dashed var(--accent);background:#eef4ff}
+.tslot.out .cap{color:var(--accent)}
+.tslot.merged .tile{border-color:var(--final);background:var(--final-bg)}
+.tslot.unwritten .tile{opacity:.35}
+.tslot.took .tile{box-shadow:0 0 0 4px rgba(31,95,191,.35)}
+.tslot.consumed .tile{opacity:.3}
+/* radix buckets */
+.bucket{position:absolute;border:2px solid var(--line);border-radius:10px;background:#fafbfc}
+.bucket .blabel{position:absolute;left:0;right:0;top:-22px;text-align:center;font-size:14px;font-weight:700;color:var(--muted)}
+.bucket.target{border-color:var(--sorted);background:var(--sorted-bg)}
+.bucket.target .blabel{color:var(--sorted)}
+.bucket.draining{border-color:var(--accent)}
+.bslot{position:absolute}
+.bslot .tile{font-size:inherit;border-width:2px;border-radius:8px}
+.bslot.consumed .tile{opacity:.25}
+.tile .dg{display:inline-block}
+.tile .dg.on{color:var(--key);text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:3px}
+.tile .dg.pad{opacity:.28}
+.slot.taken .tile{opacity:.35}
+.slot.written .tile{border-color:var(--final);background:var(--final-bg)}
+.slot.cmp .tile .dg.on{color:var(--cmp)}
+/* call-stack frames (window family) */
+.frames{position:absolute;left:0;right:0}
+.frame{position:absolute;left:0;height:30px;border:2px solid var(--line);border-radius:8px;background:#fff;font:600 14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  display:flex;align-items:center;gap:10px;padding:0 10px;white-space:nowrap;transition:opacity var(--dur),border-color var(--dur)}
+.frame .d{color:var(--muted);font-weight:500;font-size:12px}
+.frame.active{border-color:var(--accent);background:#eef4ff}
+.frame.returned{border-color:var(--final);background:var(--final-bg)}
+.frame .rv{margin-left:auto;font-weight:700;color:var(--final)}
+.frame.returned.no .rv{color:#b91c1c}
+.frames-title{position:absolute;left:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+/* call tree */
+.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.edges line{stroke:var(--line);stroke-width:2}
+.edges line.on{stroke:var(--accent);stroke-width:3}
+.node{position:absolute;border:2px solid var(--node);border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font:600 13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:3px 6px;transition:border-color var(--dur),background-color var(--dur),opacity var(--dur);white-space:nowrap}
+.node .lab{font-size:13px}
+.node .rv{font-size:13px;color:var(--final);font-weight:700}
+.node .wk{font-size:11px;color:var(--shift);font-weight:700}
+.node .mt{display:flex;gap:3px}
+.node .mt i{display:inline-flex;align-items:center;justify-content:center;width:var(--mt);height:var(--mt);border:2px solid var(--ink);border-radius:6px;font-style:normal;font-size:12px;font-weight:700;background:#fff}
+.node .mt i.cmp{border:2px dashed var(--cmp);background:var(--cmp-bg)}
+.node.active{border-color:var(--accent);border-width:3px;background:#eef4ff}
+.node.waiting{border-style:dashed;border-color:var(--accent)}
+.node.done{border-color:var(--final);background:var(--final-bg)}
+.node.memo{border-color:var(--sorted);background:var(--sorted-bg)}
+.node.memo .rv{color:var(--sorted)}
+.node.error{border-color:#b91c1c;background:#fee2e2}
+.node.dup{box-shadow:0 0 0 3px var(--key-bg)}
+.node.hidden{display:none}
+.legend .l-active{border-color:var(--accent);background:#eef4ff}
+.legend .l-waiting{border:2px dashed var(--accent);background:#fff}
+.legend .l-done{border-color:var(--final);background:var(--final-bg)}
+.legend .l-memo{border-color:var(--sorted);background:var(--sorted-bg)}
+.legend .l-error{border-color:#b91c1c;background:#fee2e2}
+.legend .l-dim{border-color:var(--node);background:#fff;opacity:.4}
+.slot.dim .tile{opacity:.3}
+.slot.found .tile{border-color:var(--final);background:var(--final-bg)}
+.slot.found .cap{color:var(--final)}
+.ptr[data-name="left"],.ptr[data-name="low"]{color:var(--le)}
+.ptr[data-name="right"],.ptr[data-name="high"]{color:var(--ge)}
+.ptr[data-name="mid"]{color:var(--accent)}
+.stackline{font-size:15px;color:var(--muted);margin-top:8px;display:none;font-variant-numeric:tabular-nums}
+.stackline.show{display:block}
+/* recurrence panel */
+.recur h2{margin-bottom:6px}
+.recur .tn{font:700 24px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:2px 0 2px}
+.recur .tn small{font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--muted);margin-left:8px;font-weight:400}
+.recur .ans{font-size:16px;margin:0 0 8px}
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.tool{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.35}
+.tool .tt{font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px}
+.tool .badge{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--line);color:var(--ink)}
+.tool.best{border:2px solid var(--final);background:var(--final-bg)}
+.tool.best .badge{background:var(--final);color:#fff}
+.tool.ok .badge{background:#dbeafe;color:#1e3a8a}
+.tool.na{opacity:.85}
+.tool.na .badge{background:#fee2e2;color:#991b1b}
+.work{border-left:4px solid var(--accent);background:#f3f6fb;border-radius:0 8px 8px 0;padding:8px 12px;font-size:14px}
+.work h3{margin:0 0 4px;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+.work .ln{font:14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:2px 0;white-space:pre-wrap}
+.work table{border-collapse:collapse;margin:4px 0;font-variant-numeric:tabular-nums}
+.work th,.work td{border-bottom:1px solid var(--line);padding:2px 8px;text-align:right;font-size:13px}
+.work th:first-child,.work td:first-child{text-align:left}
+.work .tot td{font-weight:700}
+.measured{margin:8px 0 0;font-size:14px}
+.measured b{color:var(--final)}
+.measured .warn{color:#b91c1c}
+/* reduced motion: kill every transition/animation */
+@media (prefers-reduced-motion: reduce){:root{--dur:0ms}}
+html.reduce-motion{--dur:0ms}
+html.reduce-motion *{transition:none !important;animation:none !important}
+@media print{footer,.help{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1 title="Animations traced from the exact lecture code">CSE 331 · Recursion</h1>
+  <div class="tabs" role="tablist" aria-label="Algorithm">
+    <button role="tab" data-algo="linear" aria-pressed="true">Linear search</button>
+    <button role="tab" data-algo="binary" aria-pressed="false">Binary search</button>
+    <button role="tab" data-algo="power" aria-pressed="false">Power</button>
+    <button role="tab" data-algo="find_min" aria-pressed="false">Find-min peel</button>
+    <button role="tab" data-algo="find_min2" aria-pressed="false">Find-min halves</button>
+    <button role="tab" data-algo="fib" aria-pressed="false">Fibonacci</button>
+    <button role="tab" data-algo="recurse" aria-pressed="false">recurse / recurse2</button>
+  </div>
+  <div class="ctl"><label for="sel-input">Input</label><select id="sel-input"></select></div>
+  <div class="ctl" id="ctl-buggy" style="display:none"><label class="toggle" title="Trace power_buggy (lecture04 lines 118-139): base case n == 1"><input type="checkbox" id="chk-buggy"> power_buggy (base n == 1)</label></div>
+  <div class="ctl" id="ctl-memo" style="display:none"><label class="toggle" title="Trace Fibonacci().good_fib (lecture05 lines 227-237): memoized"><input type="checkbox" id="chk-memo"> memoized good_fib</label></div>
+  <div class="ctl" id="ctl-loop" style="display:none"><label class="toggle" title="Trace recurse2 (2T(n/3) + n) instead of recurse (2T(n/3) + 1)"><input type="checkbox" id="chk-loop"> recurse2 — with the Θ(n) loop</label></div>
+  <div id="custom-row">
+    <span id="cf-list"><label for="custom-text" style="color:var(--muted);font-size:14px">List</label> <input type="text" id="custom-text" size="26" value="6, 2, 9, 4, 3, 1, 5"></span>
+    <span id="cf-target"><label for="custom-target" style="color:var(--muted);font-size:14px">target</label> <input type="number" id="custom-target" value="3" style="width:70px"></span>
+    <span id="cf-x"><label for="custom-x" style="color:var(--muted);font-size:14px">x</label> <input type="number" id="custom-x" value="2" style="width:70px"></span>
+    <span id="cf-n"><label for="custom-n" style="color:var(--muted);font-size:14px">n</label> <input type="number" id="custom-n" value="10" style="width:80px"></span>
+    <button id="btn-apply">Apply</button><span id="custom-msg"></span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="left">
+    <div class="panel stage-wrap">
+      <div class="stage-head"><h2 id="stage-title">Array</h2><div class="legend" id="legend"></div></div>
+      <div class="stage" id="stage" aria-live="off">
+        <div class="bracket" id="bracket"><span id="bracket-label"></span></div>
+        <div class="held-row" id="held-row"></div>
+        <div class="slot-row" id="slot-row"></div>
+        <div class="ptr-rows" id="ptr-rows"></div>
+        <div id="frames" class="frames"></div>
+        <svg id="edges" class="edges"></svg>
+        <div id="tree-layer"></div>
+      </div>
+      <div class="stackline" id="stackline"></div>
+    </div>
+    <div class="panel explain" aria-live="polite">
+      <h2>What just happened</h2>
+      <p class="now" id="ex-now"></p>
+      <p class="inv" id="ex-inv"></p>
+      <p class="stab" id="ex-stab"></p>
+    </div>
+    <div class="panel">
+      <div class="counters" id="counters"></div>
+      <p class="counters-note" id="counters-note">Measured by this page's trace of the lecture code.</p>
+    </div>
+  </div>
+  <div class="right">
+    <div class="panel">
+      <h2 id="code-title">Python source</h2>
+      <div class="code" id="code" role="region" aria-label="Python source with the active line highlighted"></div>
+      <p class="code-src" id="code-src"></p>
+    </div>
+    <div class="panel recur" id="recur"></div>
+    <div class="panel">
+      <h2>Variables</h2>
+      <div class="vars" id="vars"></div>
+    </div>
+    <div class="panel notes"><details open><summary>Notes on this code</summary><div id="notes"></div></details></div>
+  </div>
+</div>
+
+<footer>
+  <div class="predict" id="predict" role="dialog" aria-live="assertive">
+    <div class="q"><span id="predict-q"></span><small>Ask the room, then reveal. (→ or Enter also reveals.)</small></div>
+    <button class="primary" id="btn-reveal">Reveal next event</button>
+  </div>
+  <div class="transport">
+    <div class="grp">
+      <button id="btn-reset" title="Reset (Home)">⟲ Reset</button>
+      <button id="btn-prev-pass" title="Previous call boundary (Shift+←)">⇤ Call</button>
+      <button id="btn-prev" title="Previous event (←)">◀ Prev</button>
+      <button id="btn-play" class="primary" title="Play / pause (Space)">▶ Play</button>
+      <button id="btn-next" title="Next event (→)">Next ▶</button>
+      <button id="btn-next-pass" title="Next call boundary (Shift+→)">Call ⇥</button>
+      <button id="btn-end" title="Jump to end (End)">⇥ End</button>
+    </div>
+    <div class="grp"><label for="speed" style="color:var(--muted);font-size:14px">Speed</label>
+      <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1" style="width:90px"><span id="speed-v" class="pos">1×</span></div>
+    <div class="pos">event <b id="pos-i">0</b> / <b id="pos-n">0</b> · <span id="pos-k"></span></div>
+  </div>
+  <div class="tl-row">
+    <div class="timeline">
+      <input type="range" id="timeline" min="0" max="0" value="0" aria-label="Timeline">
+      <div class="ticks" id="ticks"></div>
+    </div>
+    <div class="grp">
+      <label class="toggle"><input type="checkbox" id="chk-predict"> Predict mode</label>
+      <label class="toggle"><input type="checkbox" id="chk-motion"> Reduced motion</label>
+      <button id="btn-help" aria-expanded="false" title="Keyboard shortcuts (?)">? Keys</button>
+    </div>
+  </div>
+  <div class="kbd"><kbd>Space</kbd> play/pause · <kbd>→</kbd>/<kbd>←</kbd> event · <kbd>Shift</kbd>+<kbd>→</kbd>/<kbd>←</kbd> pass · <kbd>Home</kbd> reset · <kbd>End</kbd> finish · <kbd>1</kbd>–<kbd>7</kbd> algorithm · <kbd>+</kbd>/<kbd>−</kbd> speed · <kbd>P</kbd> predict · <kbd>M</kbd> reduced motion · <kbd>?</kbd> help</div>
+</footer>
+</div>
+
+<div class="help" id="help" role="dialog" aria-label="Keyboard shortcuts">
+  <h3>Keyboard</h3>
+  <dl>
+    <dt><kbd>Space</kbd></dt><dd>play / pause</dd>
+    <dt><kbd>→</kbd> <kbd>←</kbd></dt><dd>next / previous event</dd>
+    <dt><kbd>Shift</kbd>+<kbd>→</kbd> <kbd>←</kbd></dt><dd>next / previous pass or iteration</dd>
+    <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>reset / jump to the end</dd>
+    <dt><kbd>1</kbd> … <kbd>7</kbd></dt><dd>linear / binary / power / find_min / find_min2 / fib / recurse</dd>
+    <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>faster / slower</dd>
+    <dt><kbd>P</kbd></dt><dd>toggle Predict mode</dd>
+    <dt><kbd>M</kbd></dt><dd>toggle reduced motion</dd>
+    <dt><kbd>?</kbd> <kbd>Esc</kbd></dt><dd>show / hide this help</dd>
+  </dl>
+</div>
+
+<script id="trace-engine">
+/* =========================================================================
+   TRACE ENGINE — deterministic, renderer-independent. Mirrors the lecture
+   files line for line (lecture04_recursion.py: _ls/linearSearch 222-248,
+   _binary_search/binary_search 254-285, power 92-115, power_buggy 118-139,
+   find_min 145-172, find_min2 175-202; lecture05_recursion2.py: fibonacci
+   182-199, Fibonacci.good_fib 227-237; lecture06_recurrences.py: recurse
+   169-174, recurse2 177-185). Field-for-field identical to
+   recursion_trace.py (verify_recursion.py diffs them).
+   ========================================================================= */
+(function (root) {
+  "use strict";
+  const LINES = {
+    linear: { file: "lecture04_recursion.py", def: 222, empty: 229, notfound: 230, compare: 231, found: 232, recurse: 233, wrapper: 248 },
+    binary: { file: "lecture04_recursion.py", def: 254, empty: 259, notfound: 261, mid: 262, eq: 263, found: 264, lt: 265, rec_left: 267, rec_right: 269, wrapper: 285 },
+    power: { file: "lecture04_recursion.py", def: 92, base_check: 107, base: 109, recurse: 110, square: 111, odd_check: 112, odd_mul: 114, ret: 115 },
+    power_buggy: { file: "lecture04_recursion.py", def: 118, base_check: 132, base: 134, recurse: 135, square: 136, odd_check: 137, odd_mul: 138, ret: 139 },
+    find_min: { file: "lecture04_recursion.py", def: 145, guard: 162, raise: 164, base_check: 165, base: 167, recurse: 168, last: 169, compare: 170, ret_rest: 171, ret_last: 172 },
+    find_min2: { file: "lecture04_recursion.py", def: 175, guard: 192, raise: 193, base_check: 194, base: 196, mid: 197, rec_left: 198, rec_right: 199, compare: 200, ret_left: 201, ret_right: 202 },
+    fib: { file: "lecture05_recursion2.py", def: 182, base_check: 194, base: 196, rec_left: 197, rec_right: 198, sum: 199 },
+    fib_memo: { file: "lecture05_recursion2.py", def: 227, base_check: 228, base: 229, memo_check: 230, memo_hit: 232, rec_left: 233, rec_right: 234, sum: 235, store: 236, ret: 237 },
+    recurse: { file: "lecture06_recurrences.py", def: 169, tick: 171, base_check: 172, base: 173, rec: 174 },
+    recurse2: { file: "lecture06_recurrences.py", def: 177, base_check: 180, base_tick: 181, base: 182, loop: 183, rec: 185 },
+  };
+  const BUGGY_CAP = 10;
+  const PRESETS = {
+    linear: [["found_3", [6, 2, 9, 4, 3, 1, 5], 3], ["first_6", [6, 2, 9, 4, 3, 1, 5], 6], ["last_5", [6, 2, 9, 4, 3, 1, 5], 5], ["missing_7", [6, 2, 9, 4, 3, 1, 5], 7], ["empty", [], 1]],
+    binary: [["found_3", [1, 2, 3, 4, 5, 6], 3], ["found_1", [1, 2, 3, 4, 5, 6], 1], ["found_6", [1, 2, 3, 4, 5, 6], 6], ["missing_7", [1, 2, 3, 4, 5, 6], 7], ["missing_2", [-3, 0, 3, 6, 9], 2], ["empty", [], 1]],
+    power: [["2^10", 2, 10], ["5^0", 5, 0], ["3^4", 3, 4], ["2^8", 2, 8], ["-2^3", -2, 3], ["2^13", 2, 13]],
+    find_min: [["five", [10, -5, 3, 7, 2]], ["single", [42]], ["equal", [4, 4, 4, 4]], ["sorted", [1, 2, 3, 4, 5]], ["six", [9, -1, 4, -7, 2, 2]]],
+    fib: [["fib5", 5], ["fib6", 6], ["fib4", 4], ["fib3", 3], ["fib7", 7], ["fib1", 1], ["fib0", 0]],
+    recurse: [["n27", 27], ["n9", 9], ["n81", 81], ["n2", 2]],
+  };
+  const deep = (x) => JSON.parse(JSON.stringify(x));
+  const mk = (values) => values.map((v, i) => ({ id: i, key: v }));
+  function emitter(cnt, tpl) {
+    const events = [];
+    return { events, cnt, emit(k, line, p, state, vars, roles, res = null) {
+      const ev = { k, line, p, vars: Object.assign({}, vars), cnt: Object.assign({}, cnt), res, roles: Object.assign(deep(tpl), roles || {}) };
+      Object.assign(ev, deep(state)); events.push(ev); } };
+  }
+
+  /* ---- window family ---- */
+  function traceLinear(values, target) {
+    const L = LINES.linear, d = mk(values), n = d.length, stack = [], box = { ret: null, found: null };
+    const T = emitter({ calls: 0, comparisons: 0, max_depth: 0 }, { window: null, cmp: null, dim: [], mid: null });
+    const st = () => ({ slots: d, stack, ret: box.ret, found: box.found, depth: stack.length });
+    const V = (o) => Object.assign({ n, target, left: null, right: null }, o);
+    const win = (l, r) => l <= r ? [l, r] : null, dim = (l, r) => { const a = []; for (let i = 0; i < n; i++) if (i < l || i > r) a.push(i); return a; };
+    T.emit("start", L.wrapper, 0, st(), V({}));
+    function _ls(left, right) {
+      stack.push({ left, right }); T.cnt.calls += 1; T.cnt.max_depth = Math.max(T.cnt.max_depth, stack.length);
+      const R = { window: win(left, right), dim: dim(left, right) };
+      T.emit("call", L.def, stack.length, st(), V({ left, right }), R);
+      let res = right < left;                                                   // line 229
+      T.emit("check_empty", L.empty, stack.length, st(), V({ left, right }), R, res);
+      if (res) { box.ret = false; T.emit("base_notfound", L.notfound, stack.length, st(), V({ left, right }), R); stack.pop(); T.emit("return", L.notfound, stack.length + 1, st(), V({ left, right }), R); return false; }
+      T.cnt.comparisons += 1; res = d[left].key === target;                    // line 231
+      T.emit("compare", L.compare, stack.length, st(), V({ left, right }), Object.assign({}, R, { cmp: left }), res);
+      if (res) { box.ret = true; box.found = left; T.emit("base_found", L.found, stack.length, st(), V({ left, right }), Object.assign({}, R, { cmp: left })); stack.pop(); T.emit("return", L.found, stack.length + 1, st(), V({ left, right }), R); return true; }
+      T.emit("recurse", L.recurse, stack.length, st(), V({ left, right }), R);
+      const r = _ls(left + 1, right);                                           // line 233
+      stack.pop(); T.emit("return", L.recurse, stack.length + 1, st(), V({ left, right }), R);
+      return r;
+    }
+    const result = _ls(0, n - 1);                                               // line 248
+    T.emit("done", L.wrapper, 0, st(), V({ result }));
+    return T.events;
+  }
+  function traceBinary(values, target) {
+    const L = LINES.binary, Ls = mk(values), n = Ls.length, stack = [], box = { ret: null, found: null };
+    const T = emitter({ calls: 0, comparisons: 0, max_depth: 0 }, { window: null, cmp: null, dim: [], mid: null });
+    const st = () => ({ slots: Ls, stack, ret: box.ret, found: box.found, depth: stack.length });
+    const V = (o) => Object.assign({ n, target, low: null, high: null, mid: null }, o);
+    const win = (l, r) => l <= r ? [l, r] : null, dim = (l, r) => { const a = []; for (let i = 0; i < n; i++) if (i < l || i > r) a.push(i); return a; };
+    T.emit("start", L.wrapper, 0, st(), V({}));
+    function _bs(low, high) {
+      stack.push({ low, high }); T.cnt.calls += 1; T.cnt.max_depth = Math.max(T.cnt.max_depth, stack.length);
+      const R = { window: win(low, high), dim: dim(low, high) };
+      T.emit("call", L.def, stack.length, st(), V({ low, high }), R);
+      let res = low > high;                                                     // line 259
+      T.emit("check_empty", L.empty, stack.length, st(), V({ low, high }), R, res);
+      if (res) { box.ret = false; T.emit("base_notfound", L.notfound, stack.length, st(), V({ low, high }), R); stack.pop(); T.emit("return", L.notfound, stack.length + 1, st(), V({ low, high }), R); return false; }
+      const mid = Math.floor((low + high) / 2);                                 // line 262
+      const Rm = Object.assign({}, R, { mid });
+      T.emit("mid", L.mid, stack.length, st(), V({ low, high, mid }), Rm);
+      T.cnt.comparisons += 1; res = target === Ls[mid].key;                      // line 263
+      T.emit("compare_eq", L.eq, stack.length, st(), V({ low, high, mid }), Object.assign({}, Rm, { cmp: mid }), res);
+      if (res) { box.ret = true; box.found = mid; T.emit("base_found", L.found, stack.length, st(), V({ low, high, mid }), Object.assign({}, Rm, { cmp: mid })); stack.pop(); T.emit("return", L.found, stack.length + 1, st(), V({ low, high, mid }), Rm); return true; }
+      T.cnt.comparisons += 1; res = target < Ls[mid].key;                        // line 265
+      T.emit("compare_lt", L.lt, stack.length, st(), V({ low, high, mid }), Object.assign({}, Rm, { cmp: mid }), res);
+      if (res) { T.emit("recurse", L.rec_left, stack.length, st(), V({ low, high, mid, side: "left" }), Rm); const r = _bs(low, mid - 1); stack.pop(); T.emit("return", L.rec_left, stack.length + 1, st(), V({ low, high, mid, side: "left" }), Rm); return r; }
+      T.emit("recurse", L.rec_right, stack.length, st(), V({ low, high, mid, side: "right" }), Rm);
+      const r = _bs(mid + 1, high); stack.pop(); T.emit("return", L.rec_right, stack.length + 1, st(), V({ low, high, mid, side: "right" }), Rm);
+      return r;
+    }
+    const result = _bs(0, n - 1);                                               // line 285
+    T.emit("done", L.wrapper, 0, st(), V({ result }));
+    return T.events;
+  }
+
+  /* ---- tree family ---- */
+  class Tree {
+    constructor(cnt, extra) { this.nodes = []; this.stack = []; this.T = emitter(cnt, { cmp: [] }); this.cur = null; this.extra = extra || {}; }
+    state() { return Object.assign({ nodes: this.nodes, cur: this.cur, stack: this.stack.slice(), depth: this.stack.length }, this.extra); }
+    call(args, vals) {
+      const nd = { id: this.nodes.length, parent: this.stack.length ? this.stack[this.stack.length - 1] : null, depth: this.stack.length, args: Object.assign({}, args), vals: vals == null ? null : deep(vals), state: "active", ret: null, work: 0 };
+      this.nodes.push(nd); this.stack.push(nd.id); this.cur = nd.id; this.T.cnt.calls += 1; this.T.cnt.max_depth = Math.max(this.T.cnt.max_depth, this.stack.length); return nd;
+    }
+    finish(nd, ret, state = "done") { nd.ret = ret; nd.state = state; this.stack.pop(); this.cur = this.stack.length ? this.stack[this.stack.length - 1] : nd.id; }
+    emit(k, line, vars, roles, res = null) { this.T.emit(k, line, this.stack.length, this.state(), vars, roles, res); }
+  }
+  function tracePower(x, n, buggy) {
+    const L = LINES[buggy ? "power_buggy" : "power"], T = new Tree({ calls: 0, mults: 0, max_depth: 0 });
+    const V = (o) => Object.assign({ x, n: null, half: null, result: null }, o);
+    T.emit("start", L.def, V({ n }));
+    const err = { hit: false };
+    function power(x, n) {
+      const nd = T.call({ x, n });
+      T.emit("call", L.def, V({ n }));
+      if (buggy && T.stack.length > BUGGY_CAP) { err.hit = true; T.nodes.forEach((m) => { m.state = "error"; }); T.emit("recursion_error", L.recurse, V({ n })); return null; }
+      const base = buggy ? n === 1 : n === 0;                                   // 107 / 132
+      T.emit("base_check", L.base_check, V({ n }), null, base);
+      if (base) { const ret = buggy ? x : 1; T.finish(nd, ret); T.emit("base", L.base, V({ n, result: ret })); return ret; }
+      nd.state = "waiting"; T.emit("recurse", L.recurse, V({ n }));
+      const half = power(x, Math.floor(n / 2));                                 // 110 / 135
+      if (err.hit) return null;
+      nd.state = "active"; T.cur = nd.id; T.emit("half", L.recurse, V({ n, half }));
+      let result = half * half; T.T.cnt.mults += 1;                             // 111 / 136
+      T.emit("square", L.square, V({ n, half, result }));
+      const odd = n % 2 === 1;                                                  // 112 / 137
+      T.emit("odd_check", L.odd_check, V({ n, half, result }), null, odd);
+      if (odd) { result = result * x; T.T.cnt.mults += 1; T.emit("odd_mul", L.odd_mul, V({ n, half, result })); }   // 114 / 138
+      T.finish(nd, result); T.emit("return", L.ret, V({ n, half, result }));
+      return result;
+    }
+    const result = power(x, n);
+    T.emit("done", L.ret, V({ n, result, error: err.hit }));
+    return T.T.events;
+  }
+  function traceFindMin(values) {
+    const L = LINES.find_min, items = mk(values), T = new Tree({ calls: 0, comparisons: 0, max_depth: 0 });
+    const V = (o) => Object.assign({ n: null, rest_min: null, last: null }, o);
+    T.emit("start", L.def, V({ n: items.length }));
+    function find_min(arr) {
+      const nd = T.call({ n: arr.length }, arr);
+      T.emit("call", L.def, V({ n: arr.length }));
+      const base = arr.length === 1;                                            // 165
+      T.emit("base_check", L.base_check, V({ n: arr.length }), null, base);
+      if (base) { T.finish(nd, arr[0].key); T.emit("base", L.base, V({ n: 1, result: arr[0].key })); return arr[0].key; }
+      nd.state = "waiting"; T.emit("recurse", L.recurse, V({ n: arr.length }));
+      const rest_min = find_min(arr.slice(0, -1));                              // 168
+      nd.state = "active"; T.cur = nd.id; T.emit("rest_min", L.recurse, V({ n: arr.length, rest_min }));
+      const last = arr[arr.length - 1].key;                                     // 169
+      T.emit("last", L.last, V({ n: arr.length, rest_min, last }), { cmp: [arr.length - 1] });
+      T.T.cnt.comparisons += 1; const res = rest_min < last;                    // 170
+      T.emit("compare", L.compare, V({ n: arr.length, rest_min, last }), { cmp: [arr.length - 1] }, res);
+      const ret = res ? rest_min : last;
+      T.finish(nd, ret); T.emit("return", res ? L.ret_rest : L.ret_last, V({ n: arr.length, rest_min, last, result: ret }));
+      return ret;
+    }
+    let result = null;
+    if (items.length) result = find_min(items);
+    else { const nd = T.call({ n: 0 }, []); nd.state = "error"; T.emit("error", L.raise, V({ n: 0 })); T.finish(nd, null, "error"); }
+    T.emit("done", L.ret_rest, V({ n: items.length, result }));
+    return T.T.events;
+  }
+  function traceFindMin2(values) {
+    const L = LINES.find_min2, items = mk(values), T = new Tree({ calls: 0, comparisons: 0, max_depth: 0 });
+    const V = (o) => Object.assign({ n: null, mid: null, left_min: null, right_min: null }, o);
+    T.emit("start", L.def, V({ n: items.length }));
+    function find_min2(arr) {
+      const n = arr.length, nd = T.call({ n }, arr);
+      T.emit("call", L.def, V({ n }));
+      const base = n === 1;                                                     // 194
+      T.emit("base_check", L.base_check, V({ n }), null, base);
+      if (base) { T.finish(nd, arr[0].key); T.emit("base", L.base, V({ n: 1, result: arr[0].key })); return arr[0].key; }
+      const mid = Math.floor(n / 2);                                            // 197
+      T.emit("mid", L.mid, V({ n, mid }));
+      nd.state = "waiting"; T.emit("recurse_left", L.rec_left, V({ n, mid }));
+      const left_min = find_min2(arr.slice(0, mid));                            // 198
+      nd.state = "active"; T.cur = nd.id; T.emit("left_min", L.rec_left, V({ n, mid, left_min }));
+      nd.state = "waiting"; T.emit("recurse_right", L.rec_right, V({ n, mid, left_min }));
+      const right_min = find_min2(arr.slice(mid));                              // 199
+      nd.state = "active"; T.cur = nd.id; T.emit("right_min", L.rec_right, V({ n, mid, left_min, right_min }));
+      T.T.cnt.comparisons += 1; const res = left_min < right_min;               // 200
+      T.emit("compare", L.compare, V({ n, mid, left_min, right_min }), null, res);
+      const ret = res ? left_min : right_min;
+      T.finish(nd, ret); T.emit("return", res ? L.ret_left : L.ret_right, V({ n, mid, left_min, right_min, result: ret }));
+      return ret;
+    }
+    let result = null;
+    if (items.length) result = find_min2(items);
+    else { const nd = T.call({ n: 0 }, []); nd.state = "error"; T.emit("error", L.raise, V({ n: 0 })); T.finish(nd, null, "error"); }
+    T.emit("done", L.ret_left, V({ n: items.length, result }));
+    return T.T.events;
+  }
+  function traceFib(n, memo) {
+    const L = LINES[memo ? "fib_memo" : "fib"], T = new Tree({ calls: 0, adds: 0, memo_hits: 0, max_depth: 0 }, memo ? { memo: [] } : null);
+    const V = (o) => Object.assign({ n: null, left: null, right: null, result: null }, o);
+    T.emit("start", L.def, V({ n }));
+    const memoD = new Map();
+    function fib(k) {
+      const nd = T.call({ n: k });
+      T.emit("call", L.def, V({ n: k }));
+      const base = memo ? k < 2 : k <= 1;                                       // 194 / 228
+      T.emit("base_check", L.base_check, V({ n: k }), null, base);
+      if (base) { T.finish(nd, k); T.emit("base", L.base, V({ n: k, result: k })); return k; }
+      if (memo) {
+        const hit = memoD.has(k);                                               // 230
+        T.emit("memo_check", L.memo_check, V({ n: k }), null, hit);
+        if (hit) { T.T.cnt.memo_hits += 1; const v = memoD.get(k); T.finish(nd, v, "memo"); T.emit("memo_hit", L.memo_hit, V({ n: k, result: v })); return v; }
+      }
+      nd.state = "waiting"; T.emit("recurse_left", L.rec_left, V({ n: k }));
+      const left = fib(k - 1);                                                  // 197 / 233
+      nd.state = "active"; T.cur = nd.id; T.emit("left", L.rec_left, V({ n: k, left }));
+      nd.state = "waiting"; T.emit("recurse_right", L.rec_right, V({ n: k, left }));
+      const right = fib(k - 2);                                                 // 198 / 234
+      nd.state = "active"; T.cur = nd.id; T.emit("right", L.rec_right, V({ n: k, left, right }));
+      const result = left + right; T.T.cnt.adds += 1;                           // 199 / 235
+      T.emit("sum", L.sum, V({ n: k, left, right, result }));
+      if (memo) { memoD.set(k, result); T.extra.memo = Array.from(memoD.entries()).map(([a, b]) => [a, b]).sort((p, q) => p[0] - q[0]); T.emit("store", L.store, V({ n: k, left, right, result })); }   // 236
+      T.finish(nd, result); T.emit("return", memo ? L.ret : L.sum, V({ n: k, left, right, result }));
+      return result;
+    }
+    const result = fib(n);
+    T.emit("done", memo ? L.ret : L.sum, V({ n, result }));
+    return T.T.events;
+  }
+  function traceRecurse(n, loop) {
+    const L = LINES[loop ? "recurse2" : "recurse"], T = new Tree({ calls: 0, ticks: 0, max_depth: 0 });
+    const V = (o) => Object.assign({ n: null, left: null, right: null, result: null, work: null }, o);
+    T.emit("start", L.def, V({ n }));
+    function rec(k) {
+      const nd = T.call({ n: k });
+      T.emit("call", L.def, V({ n: k }));
+      const base = k < 3;                                                       // 172 / 180
+      if (!loop) {
+        T.T.cnt.ticks += 1; nd.work = 1; T.emit("work", L.tick, V({ n: k, work: 1 }));   // 171
+        T.emit("base_check", L.base_check, V({ n: k, work: 1 }), null, base);
+        if (base) { T.finish(nd, 80); T.emit("base", L.base, V({ n: k, work: 1, result: 80 })); return 80; }
+      } else {
+        T.emit("base_check", L.base_check, V({ n: k }), null, base);
+        if (base) { T.T.cnt.ticks += 1; nd.work = 1; T.emit("work", L.base_tick, V({ n: k, work: 1 })); T.finish(nd, 80); T.emit("base", L.base, V({ n: k, work: 1, result: 80 })); return 80; }
+        T.T.cnt.ticks += k; nd.work = k; T.emit("work", L.loop, V({ n: k, work: k }));    // 183-184
+      }
+      nd.state = "waiting"; T.emit("recurse_left", L.rec, V({ n: k, work: nd.work }));
+      const left = rec(Math.floor(k / 3));
+      nd.state = "active"; T.cur = nd.id; T.emit("left", L.rec, V({ n: k, work: nd.work, left }));
+      nd.state = "waiting"; T.emit("recurse_right", L.rec, V({ n: k, work: nd.work, left }));
+      const right = rec(Math.floor(k / 3));
+      nd.state = "active"; T.cur = nd.id;
+      const result = left + right;
+      T.finish(nd, result); T.emit("return", L.rec, V({ n: k, work: nd.work, left, right, result }));
+      return result;
+    }
+    const result = rec(n);
+    T.emit("done", L.rec, V({ n, result }));
+    return T.T.events;
+  }
+  function trace(algo, opts) {
+    switch (algo) {
+      case "linear": return traceLinear(opts.values, opts.target);
+      case "binary": return traceBinary(opts.values, opts.target);
+      case "power": return tracePower(opts.x, opts.n, false);
+      case "power_buggy": return tracePower(opts.x, opts.n, true);
+      case "find_min": return traceFindMin(opts.values);
+      case "find_min2": return traceFindMin2(opts.values);
+      case "fib": return traceFib(opts.n, false);
+      case "fib_memo": return traceFib(opts.n, true);
+      case "recurse": return traceRecurse(opts.n, false);
+      case "recurse2": return traceRecurse(opts.n, true);
+    }
+    throw new Error("unknown algorithm " + algo);
+  }
+  const api = { LINES, PRESETS, BUGGY_CAP, trace };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  root.RecTrace = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+</script>
+
+<script id="source-lines" type="application/json">{"linear": {"file": "lecture04_recursion.py", "first": 222, "lines": ["def _ls(d: List[Any], v: Any, left: int, right: int) -> bool:", "    \"\"\"Recursive helper for linearSearch. Put the breakpoint HERE.", "", "    Base 1: window empty (right < left) -> not found.", "    Base 2: d[left] is the target -> found.", "    Recursive case: advance ``left`` by one (the window shrinks from the front).", "    \"\"\"", "    if right < left:", "        return False", "    if d[left] == v:", "        return True", "    return _ls(d, v, left + 1, right)", "", "", "def linearSearch(data: List[Any], target: Any) -> bool:", "    \"\"\"Return True if `target` is in `data`, by recursion. Works on ANY list.", "", "    Runtime: O(n) — worst case we look at every element.", "", "    This uses the WRAPPER pattern: the public function `linearSearch` hides a", "    recursive helper `_ls` that carries the left/right bookkeeping, and kicks it", "    off on the full window [0 .. len(data) - 1]. (Matches deck slide 36 verbatim.)", "", "    Example: linearSearch([6, 2, 9, 4, 3, 1, 5], 3) returns True;", "    linearSearch([6, 2, 9, 4, 3, 1, 5], 7) returns False.", "    \"\"\"", "    return _ls(data, target, 0, len(data) - 1)"]}, "binary": {"file": "lecture04_recursion.py", "first": 254, "lines": ["def _binary_search(L: List[Any], v: Any, low: int, high: int) -> bool:", "    \"\"\"Recursive helper for binary_search. Put the breakpoint HERE.", "", "    Each call throws away half the window. Precondition: L is sorted ascending.", "    \"\"\"", "    if low > high:", "        # base: window empty -> not found", "        return False", "    mid = (low + high) // 2", "    if v == L[mid]:", "        return True", "    if v < L[mid]:", "        # target is smaller -> keep the LEFT half", "        return _binary_search(L, v, low, mid - 1)", "    # target is larger -> keep the RIGHT half", "    return _binary_search(L, v, mid + 1, high)", "", "", "def binary_search(data: List[Any], target: Any) -> bool:", "    \"\"\"Return True if `target` is in the SORTED list `data`, by recursion.", "", "    Precondition: `data` must be sorted in ascending order.", "    Runtime: O(log n) — each call throws away HALF the remaining window.", "", "    Same wrapper pattern: `binary_search` starts the recursive helper on the", "    full window and lets it keep only the half that could contain the target.", "", "    Example: binary_search([1, 2, 3, 4, 5, 6], 3) returns True;", "    binary_search([1, 2, 3, 4, 5, 6], 7) returns False;", "    binary_search([], 1) returns False.", "    \"\"\"", "    return _binary_search(data, target, 0, len(data) - 1)"]}, "power": {"file": "lecture04_recursion.py", "first": 92, "lines": ["def power(x: float, n: int) -> float:", "    \"\"\"Compute x ** n in O(log n) using divide-and-conquer (squaring).", "", "    Args:", "        x: the base.", "        n: the exponent, assumed to be an integer >= 0.", "", "    Returns:", "        x raised to the power n.", "", "    Base case:      n == 0  -> 1   (this is the floor every halving path reaches)", "    Recursive case: square power(x, n // 2); if n is odd, multiply by one extra x.", "", "    Example: power(2, 10) returns 1024; power(5, 0) returns 1.", "    \"\"\"", "    if n == 0:", "        # base case: x ** 0 == 1", "        return 1", "    half = power(x, n // 2)          # shrink the exponent by HALF -> log n depth", "    result = half * half             # (x ** (n // 2)) squared", "    if n % 2 == 1:", "        # odd exponent: account for the leftover factor of x", "        result = result * x", "    return result"]}, "power_buggy": {"file": "lecture04_recursion.py", "first": 118, "lines": ["def power_buggy(x: float, n: int) -> float:", "    \"\"\"The AI's version from the Lecture 4 hook — INTENTIONALLY BROKEN.", "", "    The only difference from power() is the base case: ``if n == 1: return x``.", "    That looks reasonable (\"x to the 1 is x\") and it even passes the obvious tests:", "    power_buggy(2, 8) == 256, power_buggy(2, 5) == 32, power_buggy(3, 4) == 81.", "", "    But n == 1 is UNREACHABLE from n == 0: since 0 // 2 == 0, calling", "    power_buggy(x, 0) recurses on 0 forever -> RecursionError.", "", "    Lesson: having a base case is not the same as REACHING it. Kept here so you", "    can run it and watch it fail (see the unit test that expects the crash).", "    Do not call this from demo(), and do not Step Into it in class.", "    \"\"\"", "    if n == 1:", "        # WRONG base case: never reached when n == 0", "        return x", "    half = power_buggy(x, n // 2)", "    result = half * half", "    if n % 2 == 1:", "        result = result * x", "    return result"]}, "find_min": {"file": "lecture04_recursion.py", "first": 145, "lines": ["def find_min(arr: List[Any]) -> Any:", "    \"\"\"Return the smallest value in a non-empty list, recursively.", "", "    The idea: the minimum of the whole list is the smaller of two things —", "    the LAST item, and the minimum of everything before it (found by recursion).", "", "    Args:", "        arr: a non-empty list of comparable values.", "", "    Raises:", "        ValueError: if arr is empty.", "", "    Base case:      one element left -> that element IS the minimum.", "    Recursive case: min( find_min(everything but the last), the last item ).", "", "    Example: find_min([10, -5, 3, 7, 2]) returns -5; find_min([42]) returns 42.", "    \"\"\"", "    if len(arr) == 0:", "        # guard: undefined for an empty list", "        raise ValueError(\"find_min() arg is an empty list\")", "    if len(arr) == 1:", "        # base case: a lone item is its own min", "        return arr[0]", "    rest_min = find_min(arr[:-1])    # shrink: drop the LAST item (peel one)", "    last = arr[-1]", "    if rest_min < last:", "        return rest_min", "    return last"]}, "find_min2": {"file": "lecture04_recursion.py", "first": 175, "lines": ["def find_min2(arr: List[Any]) -> Any:", "    \"\"\"Smallest value by DIVIDE AND CONQUER: split in half, recurse on BOTH halves.", "", "    THE TRAP: splitting in half makes this LOOK like O(log n) — but it is O(n).", "    Binary search and power are O(log n) because they THROW AWAY one half each call.", "    find_min2 recurses on BOTH halves, so it still examines every element.", "    Its recurrence is T(n) = 2*T(n/2) + O(1), which solves to Theta(n) (we solve that in L6).", "", "    Args:", "        arr: a non-empty list of comparable values.", "", "    Raises:", "        ValueError: if arr is empty.", "", "    Example: find_min2([10, -5, 3, 7, 2]) returns -5.", "    \"\"\"", "    n = len(arr)", "    if n == 0:", "        raise ValueError(\"find_min2() arg is an empty list\")", "    if n == 1:", "        # base case", "        return arr[0]", "    mid = n // 2", "    left_min = find_min2(arr[:mid])      # recurse on the LEFT half", "    right_min = find_min2(arr[mid:])     # recurse on the RIGHT half", "    if left_min < right_min:", "        return left_min", "    return right_min"]}, "fib": {"file": "lecture05_recursion2.py", "first": 182, "lines": ["def fibonacci(n: int) -> int:", "    \"\"\"The n-th Fibonacci number, computed the naive recursive way.", "", "    This is CORRECT.  It is also catastrophically slow: it calls itself TWICE,", "    so the call tree branches and recomputes the same subproblems exponentially", "    many times (overlapping subproblems).  Do not call it for large n.", "", "    The two recursive calls sit on their own lines so you can Step Into the", "    left branch, then later the right branch, and watch the tree.", "", "    Example: [fibonacci(k) for k in range(8)] returns [0, 1, 1, 2, 3, 5, 8, 13].", "    \"\"\"", "    if n <= 1:", "        # one tidy base case: F(0)=0, F(1)=1", "        return n", "    left = fibonacci(n - 1)", "    right = fibonacci(n - 2)", "    return left + right"]}, "fib_memo": {"file": "lecture05_recursion2.py", "first": 219, "lines": ["class Fibonacci:", "    \"\"\"Memoized Fibonacci. The self.memo cache remembers each answer the first", "    time it is computed, so the exponential tree collapses to a line (~n calls).", "    This is MEMOIZATION / dynamic programming — previewed here, taught in L20.\"\"\"", "", "    def __init__(self) -> None:", "        self.memo = {}", "", "    def good_fib(self, n: int) -> int:", "        if n < 2:", "            return n", "        if n in self.memo:", "            # already solved -> reuse", "            return self.memo[n]", "        left = self.good_fib(n - 1)", "        right = self.good_fib(n - 2)", "        result = left + right", "        self.memo[n] = result", "        return result"]}, "recurse": {"file": "lecture06_recurrences.py", "first": 169, "lines": ["def recurse(n):", "    \"\"\"T(n) = 2T(n/3) + 1  (constant work) -> Theta(n^0.63), Master Case 1.\"\"\"", "    _tick()                               # Theta(1) work", "    if n < 3:", "        return 80", "    return recurse(n // 3) + recurse(n // 3)"]}, "recurse2": {"file": "lecture06_recurrences.py", "first": 177, "lines": ["def recurse2(n):", "    \"\"\"T(n) = 2T(n/3) + n  (a Theta(n) loop) -> Theta(n), Master Case 3.", "    Same recursion as recurse, but the loop changes the class entirely.\"\"\"", "    if n < 3:", "        _tick()", "        return 80", "    for _ in range(n):                    # the Theta(n) non-recursive work", "        _tick()", "    return recurse2(n // 3) + recurse2(n // 3)"]}, "master": {"file": "lecture06_recurrences.py", "first": 49, "lines": ["def master_theorem(a: int, b: int, c: float):", "    \"\"\"Solve T(n) = a*T(n/b) + n^c by the Master Theorem.", "", "    Compare log_b(a) with c:", "        log_b a > c  -> Case 1 -> Theta(n^{log_b a})   (leaves dominate)", "        log_b a = c  -> Case 2 -> Theta(n^c log n)     (balanced)", "        log_b a < c  -> Case 3 -> Theta(n^c)           (root dominates)", "", "    Returns (case_number, human_readable_class).", "", "    Examples: master_theorem(2, 2, 1) returns (2, 'Theta(n^1 log n)')  [merge sort];", "    master_theorem(1, 2, 0) returns (2, 'Theta(log n)')  [binary search];", "    master_theorem(2, 2, 0) returns (1, 'Theta(n)')  [find_min2].", "    \"\"\"", "    lb = math.log(a, b)", "    if abs(lb - c) < 1e-9:", "        cls = \"Theta(log n)\" if c == 0 else f\"Theta(n^{c:g} log n)\"", "        return 2, cls", "    if lb > c:", "        exp = round(lb, 4)", "        cls = \"Theta(n)\" if abs(exp - 1) < 1e-9 else f\"Theta(n^{exp})\"", "        return 1, cls", "    return 3, (f\"Theta(n^{c:g})\" if c != 1 else \"Theta(n)\")"]}}</script>
+
+<script id="ui">
+(function () {
+  "use strict";
+  const E = window.RecTrace;
+  const $ = (id) => document.getElementById(id);
+  const SRC = JSON.parse($("source-lines").textContent);
+  const FILE = (k) => E.LINES[k].file;
+  const FN = { linear: "linearSearch(data, target) → _ls(d, v, left, right)", binary: "binary_search(data, target) → _binary_search(L, v, low, high)", power: "power(x, n)", power_buggy: "power_buggy(x, n)",
+    find_min: "find_min(arr)", find_min2: "find_min2(arr)", fib: "fibonacci(n)", fib_memo: "Fibonacci().good_fib(n)", recurse: "recurse(n)", recurse2: "recurse2(n)" };
+  const FAM = (k) => (k === "linear" || k === "binary") ? "window" : "tree";
+  const PL = { found_3: "target 3 — found in the middle", first_6: "target 6 — found at index 0", last_5: "target 5 — found at the end", missing_7: "target 7 — not in the list", empty: "empty list", found_1: "target 1 — first element", found_6: "target 6 — last element", missing_2: "target 2 in [−3, 0, 3, 6, 9] — missing",
+    "2^10": "power(2, 10) = 1024", "5^0": "power(5, 0) — the base case itself", "3^4": "power(3, 4) = 81", "2^8": "power(2, 8) — all even halvings", "-2^3": "power(−2, 3) = −8", "2^13": "power(2, 13) — every step odd",
+    five: "[10, −5, 3, 7, 2]", single: "[42] — one element", equal: "[4, 4, 4, 4] — all equal", sorted: "[1, 2, 3, 4, 5]", six: "[9, −1, 4, −7, 2, 2]",
+    fib5: "fibonacci(5) — the Clicker #4 tree", fib6: "fibonacci(6)", fib4: "fibonacci(4)", fib3: "fibonacci(3)", fib7: "fibonacci(7) — 41 calls", fib1: "fibonacci(1) — base", fib0: "fibonacci(0) — base",
+    n27: "n = 27 (three levels of thirds)", n9: "n = 9", n81: "n = 81", n2: "n = 2 — base case only", custom: "custom…" };
+  const NOTES = {
+    linear: `<p><b>Wrapper + helper.</b> <code>linearSearch</code> just kicks off <code>_ls</code> on the full window <code>[0 .. len(data) − 1]</code>. Each call has two base cases — the window is empty (<code>right &lt; left</code>) or <code>d[left]</code> is the target — and otherwise shrinks the window from the front by one. Every call does constant work, and there are at most n + 1 calls, so <code>T(n) = T(n − 1) + 1</code>. Notice that the answer (True/False) is produced at the bottom and simply passed back up through every frame unchanged.</p>`,
+    binary: `<p><b>Same wrapper pattern, but each call throws away half.</b> Precondition: the list is sorted. <code>mid</code> is checked first (<code>v == L[mid]</code>), then the comparison <code>v &lt; L[mid]</code> decides which half survives. Up to two key comparisons per call, at most ⌊log₂ n⌋ + 2 calls, so <code>T(n) = T(n/2) + 1</code>. The discarded half is never looked at again — that is where the log comes from.</p>`,
+    power: `<p><b>Fast exponentiation.</b> One recursive call on <code>n // 2</code>, stored in <code>half</code>, then <code>half * half</code> and one extra <code>* x</code> if n is odd. The exponent halves each call, so there are ⌊log₂ n⌋ + 2 calls and at most 2 multiplications per call: <code>T(n) = T(n/2) + 1</code> — here <em>n is the exponent</em>, not a list length. Compare with the naive <code>x * power(x, n − 1)</code>, which would be <code>T(n − 1) + 1</code> → Θ(n).</p>`,
+    power_buggy: `<p><b>The AI's version — base case <code>n == 1</code>.</b> It passes the obvious tests (2⁸, 2⁵, 3⁴) because every odd-or-even path from n ≥ 1 does reach 1. But from n = 0, <code>0 // 2 == 0</code>: the argument never changes, the base case is never reached, and Python raises <code>RecursionError</code>. Having a base case is not the same as <em>reaching</em> it. Try the input <code>power(5, 0)</code>.</p>`,
+    find_min: `<p><b>Peel one off the end.</b> The minimum of the list is the smaller of the last item and the minimum of everything before it — which the recursive call finds. One call per element, one comparison per call after the base case: <code>T(n) = T(n − 1) + 1</code> → Θ(n). (Python's <code>arr[:-1]</code> also copies n − 1 elements per call — a hidden cost the recurrence in lecture ignores because it counts comparisons/calls; with copying counted it would be <code>T(n − 1) + n</code> → Θ(n²).)</p>`,
+    find_min2: `<p><b>The trap: halving is not the same as throwing half away.</b> This splits the list in half but recurses on <em>both</em> halves, so every element is still visited. <code>T(n) = 2T(n/2) + 1</code> → Θ(n): 2n − 1 calls and n − 1 comparisons, exactly like the loop. Binary search and power are Θ(log n) because they keep only one half.</p>`,
+    fib: `<p><b>Correct and catastrophically slow.</b> Two recursive calls per non-base call, and they overlap: <code>fibonacci(5)</code> computes <code>fibonacci(2)</code> three times and <code>fibonacci(1)</code> five times. Total calls = 2·F(n+1) − 1, which grows like φⁿ ≈ 1.618ⁿ. <code>T(n) = T(n − 1) + T(n − 2) + 1</code> — subtractive and uneven, so the Master Theorem cannot be used; bound it with the recursion tree.</p>`,
+    fib_memo: `<p><b>The cure (preview of L20).</b> <code>self.memo</code> remembers each answer the first time it is computed; a repeated subproblem returns immediately (purple <em>memo</em> nodes). The exponential tree collapses to a chain plus one memo hit per level: about 2n − 1 calls. <code>T(n) = T(n − 1) + 1</code> → Θ(n).</p>`,
+    recurse: `<p><b>Same recursion, different non-recursive work.</b> <code>recurse</code> does Θ(1) work per call (one <code>_tick</code>), then two calls on n/3: <code>T(n) = 2T(n/3) + 1</code>. Master Theorem: a = 2, b = 3, c = 0, log₃2 ≈ 0.63 &gt; 0 → Case 1 → Θ(n^0.63). The leaves dominate: the per-level work doubles each level down.</p>`,
+    recurse2: `<p><b>Add a Θ(n) loop and the class changes.</b> <code>recurse2</code> ticks n times before the same two calls: <code>T(n) = 2T(n/3) + n</code>. Master Theorem: log₃2 ≈ 0.63 &lt; 1 → Case 3 → Θ(n). The root dominates: per-level work shrinks by ⅔ each level (27, 18, 12, 8, …), a geometric series summing to about 3n.</p>`,
+  };
+
+  const state = { algo: "linear", buggy: false, memo: false, loop: false, inputName: "found_3", values: [6, 2, 9, 4, 3, 1, 5], target: 3, x: 2, n: 10,
+    predict: false, speed: 1, events: [], idx: 0, playing: false, timer: null, pending: -1, slotEls: [], tile: 80, gap: 10, offset: 0, tree: null, frames: null };
+  const key = () => state.algo === "power" ? (state.buggy ? "power_buggy" : "power") : state.algo === "fib" ? (state.memo ? "fib_memo" : "fib") : state.algo === "recurse" ? (state.loop ? "recurse2" : "recurse") : state.algo;
+  const presetGroup = () => state.algo === "power" ? "power" : state.algo === "fib" ? "fib" : state.algo === "recurse" ? "recurse" : (state.algo === "find_min" || state.algo === "find_min2") ? "find_min" : state.algo;
+  const opts = () => ({ values: state.values, target: state.target, x: state.x, n: state.n });
+  const fmtList = (vals) => "[" + vals.map((s) => (s.key != null ? s.key : s)).join(", ") + "]";
+  const tf = (b) => b ? "True" : "False";
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const log2 = Math.log2;
+
+  /* ------------------------------------------------------------------ */
+  /* annotation                                                          */
+  /* ------------------------------------------------------------------ */
+  function annotate(events, k) {
+    const frames = [];   // UI-derived: every frame ever pushed, kept after it returns (window family)
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i], v = ev.vars, c = ev.cnt;
+      let text = "", inv = "";
+      if (k === "linear") {
+        const S = ev.slots, n = S.length, w = `_ls(d, ${v.target}, left=${v.left}, right=${v.right})`;
+        switch (ev.k) {
+          case "start": text = n ? `linearSearch(${fmtList(S)}, ${v.target}): the wrapper starts the helper on the full window: _ls(data, target, 0, ${n - 1}).` : `linearSearch([], ${v.target}): the wrapper calls _ls(data, target, 0, −1) — an empty window.`; break;
+          case "call": text = `${w}, depth ${ev.depth}. Window ${v.left <= v.right ? `d[${v.left}..${v.right}]` : "empty"}.`; break;
+          case "check_empty": text = `Base case 1? right < left → ${v.right} < ${v.left} → ${tf(ev.res)}.` + (ev.res ? " The window is empty: the target is not here." : " Still something to look at."); break;
+          case "base_notfound": text = `return False — the bottom of the recursion. Now the answer travels back up through every frame.`; break;
+          case "compare": text = `Base case 2? d[left] == v → d[${v.left}] = ${S[v.left].key} == ${v.target} → ${tf(ev.res)}.` + (ev.res ? " Found it." : " Not it — shrink the window from the front."); break;
+          case "base_found": text = `return True from depth ${ev.depth}: found at index ${ev.found}. The remaining frames just pass True upward.`; break;
+          case "recurse": text = `return _ls(d, v, left + 1, right) — the window shrinks by one: [${v.left + 1}..${v.right}]. This frame waits for the answer.`; break;
+          case "return": text = `${w} returns ${tf(ev.ret)} (passed straight through from the call below). Depth back to ${ev.depth}.`; break;
+          case "done": text = `linearSearch returns ${tf(v.result)}. ${plural(c.calls, "call")}, ${plural(c.comparisons, "comparison")}, max depth ${c.max_depth} — one frame per element examined.`; break;
+        }
+        inv = `<b>Invariant:</b> the target is not in d[0..left−1] (those were checked by the frames above); if it exists it is in the window d[left..right].`;
+      } else if (k === "binary") {
+        const S = ev.slots, n = S.length, w = `_binary_search(L, ${v.target}, low=${v.low}, high=${v.high})`;
+        switch (ev.k) {
+          case "start": text = n ? `binary_search(${fmtList(S)}, ${v.target}): the wrapper starts the helper on the full window [0..${n - 1}]. Precondition: sorted.` : `binary_search([], ${v.target}): window [0..−1] is empty.`; break;
+          case "call": text = `${w}, depth ${ev.depth}. Window ${v.low <= v.high ? `L[${v.low}..${v.high}] (${v.high - v.low + 1} elements)` : "empty"}.`; break;
+          case "check_empty": text = `Base case? low > high → ${v.low} > ${v.high} → ${tf(ev.res)}.` + (ev.res ? " Empty window: not found." : ""); break;
+          case "base_notfound": text = `return False — nothing left to search.`; break;
+          case "mid": text = `mid = (low + high) // 2 = (${v.low} + ${v.high}) // 2 = ${v.mid}; L[mid] = ${S[v.mid].key}.`; break;
+          case "compare_eq": text = `v == L[mid] → ${v.target} == ${S[v.mid].key} → ${tf(ev.res)}.` + (ev.res ? " Found it." : ""); break;
+          case "base_found": text = `return True from depth ${ev.depth}: found at index ${ev.found}.`; break;
+          case "compare_lt": text = `v < L[mid] → ${v.target} < ${S[v.mid].key} → ${tf(ev.res)}. Keep the ${ev.res ? "LEFT" : "RIGHT"} half; the other half can never contain ${v.target}.`; break;
+          case "recurse": text = v.side === "left" ? `return _binary_search(L, v, low, mid − 1) → window [${v.low}..${v.mid - 1}]. Half the elements are gone.` : `return _binary_search(L, v, mid + 1, high) → window [${v.mid + 1}..${v.high}]. Half the elements are gone.`; break;
+          case "return": text = `${w} returns ${tf(ev.ret)} — passed up unchanged. Depth back to ${ev.depth}.`; break;
+          case "done": text = `binary_search returns ${tf(v.result)}. ${plural(c.calls, "call")} (≤ ⌊log₂ ${n}⌋ + 2 = ${n ? Math.floor(log2(n)) + 2 : 1}), ${plural(c.comparisons, "comparison")}, max depth ${c.max_depth}.`; break;
+        }
+        inv = `<b>Invariant:</b> if the target is in the list, it is inside the window L[low..high]; everything outside was eliminated by a comparison.`;
+      } else if (k === "power" || k === "power_buggy") {
+        const nm = k === "power" ? "power" : "power_buggy";
+        switch (ev.k) {
+          case "start": text = `${nm}(${v.x}, ${v.n}): compute ${v.x}^${v.n} by squaring.`; break;
+          case "call": text = `${nm}(${v.x}, ${v.n}) — depth ${ev.depth}.`; break;
+          case "base_check": text = k === "power" ? `Base case? n == 0 → ${v.n} == 0 → ${tf(ev.res)}.` : `Base case? n == 1 → ${v.n} == 1 → ${tf(ev.res)}.` + (v.n === 0 && !ev.res ? " n is 0, and 0 // 2 is 0 again — this can never reach 1." : ""); break;
+          case "base": text = k === "power" ? `return 1: x⁰ = 1. The floor every halving path reaches.` : `return x = ${v.result}: the buggy base case (fine for n ≥ 1).`; break;
+          case "recurse": text = `half = ${nm}(x, n // 2) = ${nm}(${v.x}, ${Math.floor(v.n / 2)}) — ONE recursive call on half the exponent. This frame waits.`; break;
+          case "half": text = `The call returned: half = ${v.half} (= ${v.x}^${Math.floor(v.n / 2)}).`; break;
+          case "square": text = `result = half * half = ${v.half} × ${v.half} = ${v.result}  (one multiplication).`; break;
+          case "odd_check": text = `n % 2 == 1 → ${v.n} % 2 = ${v.n % 2} → ${tf(ev.res)}.` + (ev.res ? " Odd: one leftover factor of x." : " Even: nothing to fix."); break;
+          case "odd_mul": text = `result = result * x = ${v.result / v.x} × ${v.x} = ${v.result}  (one more multiplication).`; break;
+          case "return": text = `return ${v.result} = ${v.x}^${v.n}. Depth back to ${ev.depth}.`; break;
+          case "recursion_error": text = `RecursionError: ${nm}(${v.x}, 0) keeps calling ${nm}(${v.x}, 0 // 2) = ${nm}(${v.x}, 0). The base case n == 1 exists but is unreachable — shown here after ${E.BUGGY_CAP} frames; Python stops at its recursion limit (1000).`; break;
+          case "done": text = v.error ? `Crashed: no result. Lesson — having a base case is not the same as reaching it.` : `${nm}(${v.x}, ${v.n}) = ${v.result}. ${plural(c.calls, "call")} (= ⌊log₂ ${v.n}⌋ + 2), ${plural(c.mults, "multiplication")}, max depth ${c.max_depth}.`; break;
+        }
+        inv = `<b>Invariant:</b> each frame's answer is x^n for its own n; a frame at n only needs x^(n//2), so the exponent halves every level and there are ⌊log₂ n⌋ + 1 levels below the top.`;
+      } else if (k === "find_min") {
+        const nd = ev.nodes[ev.cur] || null;
+        switch (ev.k) {
+          case "start": text = `find_min(${fmtList(state.values)}): the minimum is the smaller of the LAST item and the minimum of everything before it.`; break;
+          case "call": text = `find_min(${fmtList(nd.vals)}) — depth ${ev.depth}, ${plural(v.n, "element")}.`; break;
+          case "error": text = `len(arr) == 0 → raise ValueError: the minimum of an empty list is undefined.`; break;
+          case "base_check": text = `Base case? len(arr) == 1 → ${v.n} == 1 → ${tf(ev.res)}.`; break;
+          case "base": text = `return arr[0] = ${v.result}: a lone item is its own minimum.`; break;
+          case "recurse": text = `rest_min = find_min(arr[:-1]) — peel the last item (${nd.vals[nd.vals.length - 1].key}) off and ask the recursion for the min of ${fmtList(nd.vals.slice(0, -1))}. This frame waits.`; break;
+          case "rest_min": text = `The call returned: rest_min = ${v.rest_min}.`; break;
+          case "last": text = `last = arr[-1] = ${v.last}.`; break;
+          case "compare": text = `rest_min < last → ${v.rest_min} < ${v.last} → ${tf(ev.res)}.  (one comparison)`; break;
+          case "return": text = `return ${v.result} — the minimum of ${fmtList(nd.vals)}. Depth back to ${ev.depth}.`; break;
+          case "done": text = v.result == null ? `No result (ValueError).` : `find_min = ${v.result}. ${plural(c.calls, "call")} (= n), ${plural(c.comparisons, "comparison")} (= n − 1), max depth ${c.max_depth} — the stack is as deep as the list is long.`; break;
+        }
+        inv = `<b>Invariant:</b> a frame holding arr returns min(arr); it trusts the call below to return min(arr[:-1]) (the leap of faith) and only compares that with arr[-1].`;
+      } else if (k === "find_min2") {
+        const nd = ev.nodes[ev.cur] || null;
+        switch (ev.k) {
+          case "start": text = `find_min2(${fmtList(state.values)}): split in half and recurse on BOTH halves.`; break;
+          case "call": text = `find_min2(${fmtList(nd.vals)}) — depth ${ev.depth}, n = ${v.n}.`; break;
+          case "error": text = `n == 0 → raise ValueError.`; break;
+          case "base_check": text = `Base case? n == 1 → ${v.n} == 1 → ${tf(ev.res)}.`; break;
+          case "base": text = `return arr[0] = ${v.result}.`; break;
+          case "mid": text = `mid = n // 2 = ${v.mid}: halves ${fmtList(nd.vals.slice(0, v.mid))} and ${fmtList(nd.vals.slice(v.mid))}.`; break;
+          case "recurse_left": text = `left_min = find_min2(arr[:mid]) — first recursive call, on the LEFT half. This frame waits.`; break;
+          case "left_min": text = `Left half returned: left_min = ${v.left_min}. Now the RIGHT half — the half binary search would have thrown away.`; break;
+          case "recurse_right": text = `right_min = find_min2(arr[mid:]) — second recursive call, on the RIGHT half.`; break;
+          case "right_min": text = `Right half returned: right_min = ${v.right_min}.`; break;
+          case "compare": text = `left_min < right_min → ${v.left_min} < ${v.right_min} → ${tf(ev.res)}.  (one comparison)`; break;
+          case "return": text = `return ${v.result} — the minimum of ${fmtList(nd.vals)}. Depth back to ${ev.depth}.`; break;
+          case "done": text = v.result == null ? `No result (ValueError).` : `find_min2 = ${v.result}. ${plural(c.calls, "call")} (= 2n − 1), ${plural(c.comparisons, "comparison")} (= n − 1), max depth ${c.max_depth} (≈ log₂ n) — shallow stack, but every element still visited.`; break;
+        }
+        inv = `<b>Invariant:</b> every leaf is one element; each internal frame returns the smaller of its two children's minima — so every element is compared into the answer exactly once per level it crosses.`;
+      } else if (k === "fib" || k === "fib_memo") {
+        const nm = k === "fib" ? "fibonacci" : "good_fib";
+        const times = (n) => ev.nodes.filter((x) => x.args.n === n).length;
+        switch (ev.k) {
+          case "start": text = `${nm}(${v.n}): F(n) = F(n−1) + F(n−2), with F(0) = 0, F(1) = 1.`; break;
+          case "call": { const t = times(v.n); text = `${nm}(${v.n}) — depth ${ev.depth}.` + (t > 1 ? ` This is the ${t}${t === 2 ? "nd" : t === 3 ? "rd" : "th"} time ${nm}(${v.n}) is called — an overlapping subproblem.` : ""); break; }
+          case "base_check": text = (k === "fib" ? `Base case? n <= 1 → ${v.n} <= 1` : `Base case? n < 2 → ${v.n} < 2`) + ` → ${tf(ev.res)}.`; break;
+          case "base": text = `return n = ${v.result}: F(0) = 0, F(1) = 1.`; break;
+          case "memo_check": text = `n in self.memo? ${v.n} in {${ev.memo.map((p) => p[0]).join(", ")}} → ${tf(ev.res)}.` + (ev.res ? " Already solved — reuse it." : " Not yet: compute it once."); break;
+          case "memo_hit": text = `return self.memo[${v.n}] = ${v.result} immediately — no recursion. The whole subtree that naive fibonacci would rebuild is skipped.`; break;
+          case "recurse_left": text = `left = ${nm}(n − 1) = ${nm}(${v.n - 1}). This frame waits — the second call cannot start until the first returns.`; break;
+          case "left": text = `left = ${v.left}. Now the second call.`; break;
+          case "recurse_right": text = `right = ${nm}(n − 2) = ${nm}(${v.n - 2}).`; break;
+          case "right": text = `right = ${v.right}.`; break;
+          case "sum": text = `left + right = ${v.left} + ${v.right} = ${v.result}.`; break;
+          case "store": text = `self.memo[${v.n}] = ${v.result} — remembered for next time.`; break;
+          case "return": text = `return ${v.result} = F(${v.n}). Depth back to ${ev.depth}.`; break;
+          case "done": text = `${nm}(${v.n}) = ${v.result}. ${plural(c.calls, "call")}` + (k === "fib" ? ` (= 2·F(${v.n + 1}) − 1 = ${2 * fibN(v.n + 1) - 1})` : ` (≈ 2n − 1 with memo; naive would need ${2 * fibN(v.n + 1) - 1})`) + `, ${plural(c.adds, "addition")}` + (k === "fib_memo" ? `, ${plural(c.memo_hits, "memo hit")}` : "") + `, max depth ${c.max_depth}.`; break;
+        }
+        inv = k === "fib" ? `<b>Invariant:</b> a frame for n returns F(n) after BOTH children return; the left subtree is fully explored before the right one starts, so the tree is built depth-first, left to right.` : `<b>Invariant:</b> self.memo holds F(k) for every k already finished; a frame for n either returns from the memo or computes F(n) once and stores it.`;
+      } else { // recurse / recurse2
+        const nm = k;
+        switch (ev.k) {
+          case "start": text = `${nm}(${v.n}): two calls on n // 3 per non-base call; ${k === "recurse" ? "one tick" : "an n-iteration loop"} of non-recursive work.`; break;
+          case "call": text = `${nm}(${v.n}) — depth ${ev.depth}.`; break;
+          case "work": text = k === "recurse" ? `_tick() — Θ(1) work in this call.` : (v.n < 3 ? `_tick() — the base case does 1 tick.` : `for _ in range(${v.n}): _tick() — Θ(n) work: ${v.n} ticks in this call before recursing.`); break;
+          case "base_check": text = `Base case? n < 3 → ${v.n} < 3 → ${tf(ev.res)}.`; break;
+          case "base": text = `return 80 (the base value is arbitrary — what matters is the WORK, not the answer).`; break;
+          case "recurse_left": text = `first call: ${nm}(n // 3) = ${nm}(${Math.floor(v.n / 3)}). This frame waits.`; break;
+          case "left": text = `first call returned ${v.left}.`; break;
+          case "recurse_right": text = `second call: ${nm}(${Math.floor(v.n / 3)}) — the same size again (that is the a = 2 in the recurrence).`; break;
+          case "return": text = `return ${v.left} + ${v.right} = ${v.result}. This call cost ${plural(v.work, "tick")} of its own. Depth back to ${ev.depth}.`; break;
+          case "done": text = `${nm}(${v.n}) = ${v.result}. ${plural(c.calls, "call")}, ${plural(c.ticks, "tick")} total — the measured T(${v.n}). Max depth ${c.max_depth} = number of levels.`; break;
+        }
+        inv = `<b>Invariant:</b> the tree has 2^d calls at depth d, each of size n/3^d; total ticks = Σ over levels of (calls at that level × work per call).`;
+      }
+      ev.text = text; ev.inv = inv;
+      // UI frames for the window family
+      if (FAM(k) === "window") {
+        if (ev.k === "call") frames.push({ vars: Object.assign({}, v), state: "active", ret: null });
+        else if (ev.k === "return") { const f = frames.filter((x) => x.state !== "returned").pop(); if (f) { f.state = "returned"; f.ret = ev.ret; } }
+        frames.forEach((f) => { if (f.state !== "returned") f.state = "waiting"; });
+        const act = frames.filter((x) => x.state !== "returned").pop(); if (act && ev.k !== "done") act.state = "active";
+        ev.frames = frames.map((f) => Object.assign({}, f));
+      }
+    }
+    // prediction prompts
+    for (let i = 1; i < events.length; i++) {
+      const ev = events[i], prev = events[i - 1], v = ev.vars; let q = null;
+      if (k === "linear") { if (ev.k === "compare") q = `Which element does this call test against ${v.target} — and is it a match?`; else if (ev.k === "return" && prev.k === "return") q = `The frame below returned ${tf(prev.ret)}. What does this frame return?`; }
+      else if (k === "binary") { if (ev.k === "mid") q = `The window is [${v.low}..${v.high}]. Which index is mid?`; else if (ev.k === "recurse") q = `${v.target} vs L[mid] = ${prev.slots[prev.vars.mid].key}: which half survives?`; }
+      else if (k.startsWith("power")) { if (ev.k === "square" && prev.k === "half") q = `half = ${prev.vars.half}. What is result after squaring — and will an extra × x be needed for n = ${v.n}?`; else if (ev.k === "base_check" && v.n <= 1) q = `n = ${v.n}. Does this version's base case fire?`; }
+      else if (k === "find_min") { if (ev.k === "compare") q = `rest_min = ${prev.vars.rest_min}, last = ${prev.vars.last}. Which one does this frame return?`; }
+      else if (k === "find_min2") { if (ev.k === "compare") q = `left_min = ${prev.vars.left_min}, right_min = ${prev.vars.right_min}. Which is returned?`; else if (ev.k === "recurse_right" && prev.k === "left_min") q = `The left half is done. Does find_min2 stop here (like binary search) or recurse on the right half too?`; }
+      else if (k.startsWith("fib")) { if (ev.k === "call" && prev.k === "recurse_right") q = `Which call happens now — and has ${k === "fib" ? "fibonacci" : "good_fib"}(${v.n}) already been computed in this tree?`; else if (ev.k === "sum") q = `left = ${prev.vars.left}, right = ${prev.vars.right}. What does this frame return?`; }
+      else { if (ev.k === "work") q = `How much non-recursive work does ${k}(${v.n}) do before recursing?`; else if (ev.k === "call" && prev.k === "recurse_right") q = `Second call: what size, and how many calls at this depth in total?`; }
+      ev.predict = q;
+    }
+    return events;
+  }
+  function fibN(n) { let a = 0, b = 1; for (let i = 0; i < n; i++) { const t = a + b; a = b; b = t; } return a; }
+
+  /* ------------------------------------------------------------------ */
+  function rebuild() {
+    stop();
+    const k = key();
+    state.events = annotate(E.trace(k, opts()), k);
+    state.idx = 0; state.pending = -1; hidePredict();
+    buildStage(); buildCode(); buildTimeline(); buildRecurrence();
+    $("notes").innerHTML = NOTES[k];
+    render(state.events[0], null);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* stage                                                               */
+  /* ------------------------------------------------------------------ */
+  const left = (i) => state.offset + i * (state.tile + state.gap);
+  function buildStage() {
+    const k = key(), stage = $("stage");
+    ["slot-row", "held-row", "ptr-rows", "frames", "tree-layer"].forEach((id) => { $(id).innerHTML = ""; });
+    $("edges").innerHTML = "";
+    stage.querySelectorAll(".empty-note").forEach((e) => e.remove());
+    $("bracket").classList.remove("show"); $("stackline").classList.remove("show"); $("held-row").style.display = "none";
+    const W = stage.clientWidth || 800;
+    const LT = { cmp: "comparing now", found: "found here", dim: "eliminated", active: "executing call", waiting: "waiting for its call", done: "returned", memo: "returned from memo", error: "error" };
+    const LG = FAM(k) === "window" ? ["cmp", "found", "dim"] : k === "fib_memo" ? ["active", "waiting", "done", "memo"] : k === "power_buggy" ? ["active", "waiting", "done", "error"] : ["active", "waiting", "done"];
+    $("legend").innerHTML = LG.map((x) => `<span><i class="l-${x}"></i>${LT[x]}</span>`).join("");
+    $("stage-title").textContent = `${FN[k]}  ·  ${PL[state.inputName] || state.inputName}`;
+    $("ctl-buggy").style.display = state.algo === "power" ? "" : "none";
+    $("ctl-memo").style.display = state.algo === "fib" ? "" : "none";
+    $("ctl-loop").style.display = state.algo === "recurse" ? "" : "none";
+    if (FAM(k) === "window") buildWindowStage(k, W, stage); else buildTreeStage(k, W, stage);
+  }
+  function buildWindowStage(k, W, stage) {
+    const n = state.values.length, slotRow = $("slot-row"), ptrRows = $("ptr-rows"), fr = $("frames");
+    state.gap = n > 9 ? 6 : 10;
+    state.tile = Math.max(44, Math.min(80, Math.floor((W - state.gap * (n + 1)) / Math.max(n, 1))));
+    state.offset = Math.max(0, (W - (n * state.tile + (n - 1) * state.gap)) / 2);
+    stage.style.setProperty("--tile", state.tile + "px");
+    const fs = Math.round(state.tile * 0.38);
+    state.slotEls = [];
+    for (let i = 0; i < n; i++) { const s = document.createElement("div"); s.className = "slot"; s.style.left = left(i) + "px"; s.innerHTML = `<div class="cap"></div><div class="tile" style="font-size:${fs}px"><span class="val"></span><span class="tag"></span><span class="lock"></span></div><div class="idx">${i}</div>`; slotRow.appendChild(s); state.slotEls.push(s); }
+    if (n === 0) { const e = document.createElement("div"); e.className = "empty-note"; e.style.height = "120px"; e.style.inset = "auto 0 auto 0"; e.style.top = "40px"; e.textContent = "Empty list — the first call already sees an empty window."; stage.appendChild(e); }
+    const names = k === "linear" ? ["left", "right"] : ["low", "mid", "high"];
+    const slotTop = 58; slotRow.style.top = slotTop + "px";
+    const ptrTop = slotTop + state.tile + 30; ptrRows.style.top = ptrTop + "px";
+    names.forEach((nm, r) => { const p = document.createElement("div"); p.className = "ptr"; p.dataset.name = nm; p.style.top = (r * 24) + "px"; p.innerHTML = `<span class="arrow">▲</span><span class="lbl">${nm}</span>`; ptrRows.appendChild(p); });
+    const last = state.events[state.events.length - 1];
+    const maxFrames = Math.max(1, ...state.events.map((e) => (e.frames || []).length));
+    const frTop = ptrTop + names.length * 24 + 14;
+    fr.style.top = frTop + "px";
+    const title = document.createElement("div"); title.className = "frames-title"; title.textContent = "call stack (top = most recent)"; title.style.top = "-2px"; fr.appendChild(title);
+    state.frames = { el: fr, top: frTop, max: maxFrames };
+    stage.style.height = (frTop + 22 + maxFrames * 36 + 4) + "px";
+    void last;
+  }
+  function buildTreeStage(k, W, stage) {
+    const layer = $("tree-layer"), last = state.events[state.events.length - 1], N = last.nodes;
+    const children = (id) => N.filter((x) => x.parent === id);
+    const leaves = {}; const countLeaves = (id) => { const ch = children(id); leaves[id] = ch.length ? ch.reduce((s, c) => s + countLeaves(c.id), 0) : 1; return leaves[id]; };
+    if (N.length) countLeaves(0);
+    const rows = Math.max(1, ...N.map((x) => x.depth + 1)), totalLeaves = N.length ? leaves[0] : 1;
+    const nmax = Math.max(1, ...N.map((x) => (x.vals ? x.vals.length : 0)));
+    const mt = (k === "find_min" || k === "find_min2") ? Math.max(18, Math.min(30, Math.floor((W - 60) / Math.max(totalLeaves, 1) / Math.max(1, k === "find_min" ? nmax : 1) - 6))) : 0;
+    const labelW = { power: 112, power_buggy: 132, fib: 70, fib_memo: 70, recurse: 92, recurse2: 100 }[k] || 100;
+    let nodeW = (k === "find_min" || k === "find_min2") ? null : Math.min(labelW, Math.floor((W - 20) / totalLeaves) - 4);
+    const tileNode = (k === "find_min" || k === "find_min2");
+    const nodeH = tileNode ? mt + 26 : k.startsWith("recurse") ? 54 : 40;
+    const rowH = nodeH + (rows > 8 ? 8 : 14);
+    stage.style.setProperty("--mt", mt + "px");
+    const fs = nodeW != null && nodeW < 60 ? 11 : nodeW != null && nodeW < 76 ? 12 : 13;
+    const widthOf = (nd) => nodeW != null ? nodeW : (Math.max(1, nd.vals.length) * (mt + 3) + 14);
+    const leafW = (k === "find_min" || k === "find_min2") ? (mt + 3) * (k === "find_min" ? nmax : 1) + 18 : nodeW + 4;
+    const totalW = leafW * totalLeaves, x0 = Math.max(0, (W - totalW) / 2);
+    const pos = {}; let cursor = x0;
+    const place = (id) => { const ch = children(id); if (!ch.length) { pos[id] = cursor + leafW / 2; cursor += leafW; return; } ch.forEach((c) => place(c.id)); pos[id] = (pos[ch[0].id] + pos[ch[ch.length - 1].id]) / 2; };
+    if (N.length) place(0);
+    const els = {};
+    N.forEach((nd) => {
+      const w = widthOf(nd), el = document.createElement("div"); el.className = "node hidden"; el.dataset.id = nd.id;
+      el.style.left = (pos[nd.id] - w / 2) + "px"; el.style.top = (nd.depth * rowH + 6) + "px"; el.style.width = w + "px"; el.style.fontSize = fs + "px";
+      el.innerHTML = (nd.vals ? `<div class="mt">${nd.vals.map(() => `<i></i>`).join("")}</div>` : `<div class="lab"></div>`) + `<div class="rv"></div>` + (k.startsWith("recurse") ? `<div class="wk"></div>` : "");
+      layer.appendChild(el); els[nd.id] = { el, x: pos[nd.id], y: nd.depth * rowH + 6, w };
+    });
+    const svg = $("edges"); svg.innerHTML = "";
+    N.forEach((nd) => { if (nd.parent == null) return; const p = els[nd.parent], c = els[nd.id]; const ln = document.createElementNS("http://www.w3.org/2000/svg", "line"); ln.setAttribute("x1", p.x); ln.setAttribute("y1", p.y + nodeH); ln.setAttribute("x2", c.x); ln.setAttribute("y2", c.y); ln.dataset.id = nd.id; ln.style.display = "none"; svg.appendChild(ln); });
+    stage.style.height = (rows * rowH + 14) + "px";
+    state.tree = { els, rowH, mt };
+  }
+
+  /* ------------------------------------------------------------------ */
+  function buildCode() {
+    const k = key(), b = SRC[k];
+    const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    $("code").innerHTML = b.lines.map((ln, i) => `<div class="ln" data-line="${b.first + i}"><span class="no">${b.first + i}</span><span>${esc(ln) || " "}</span></div>`).join("");
+    $("code-title").textContent = `Python source — ${b.file}`;
+    $("code-src").textContent = `${b.file} lines ${b.first}–${b.first + b.lines.length - 1}, quoted verbatim. Playback re-traces exactly these lines.`;
+  }
+  const isBoundary = (ev) => ev.k === "return" || ev.k === "base" || ev.k === "memo_hit" || ev.k === "done" || ev.k === "recursion_error" || ev.k === "error";
+  function buildTimeline() {
+    const tl = $("timeline"), N = state.events.length - 1; tl.max = N; tl.value = 0; $("pos-n").textContent = N;
+    const ticks = $("ticks"); ticks.innerHTML = "";
+    state.events.forEach((ev, i) => { if (ev.k === "return" && i < N) { const t = document.createElement("div"); t.className = "tick"; t.style.left = (N ? (i / N) * 100 : 0) + "%"; ticks.appendChild(t); } });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* recurrence panel                                                    */
+  /* ------------------------------------------------------------------ */
+  function levelTable(last, workOf) {
+    const rows = {}; last.nodes.forEach((nd) => { if (nd.state === "error") return; const r = rows[nd.depth] = rows[nd.depth] || { calls: 0, work: 0, size: nd.args.n }; r.calls += 1; r.work += workOf(nd); });
+    return Object.keys(rows).sort((a, b) => a - b).map((d) => Object.assign({ depth: +d }, rows[d]));
+  }
+  function masterBlock(a, b, c, extra) {
+    const lb = Math.log(a) / Math.log(b), cse = Math.abs(lb - c) < 1e-9 ? 2 : lb > c ? 1 : 3;
+    const cls = cse === 2 ? (c === 0 ? "Θ(log n)" : `Θ(n^${c} log n)`) : cse === 1 ? (Math.abs(lb - 1) < 1e-9 ? "Θ(n)" : `Θ(n^${lb.toFixed(2)})`) : (c === 1 ? "Θ(n)" : `Θ(n^${c})`);
+    return `<h3>Master Theorem — T(n) = a·T(n/b) + n^c</h3><div class="ln">a = ${a}, b = ${b}, c = ${c}   →   log_b a = log_${b} ${a} = ${Number.isInteger(lb) ? lb : lb.toFixed(3)}</div><div class="ln">compare log_b a with c:  ${Number.isInteger(lb) ? lb : lb.toFixed(2)} ${cse === 2 ? "=" : cse === 1 ? ">" : "<"} ${c}   →   Case ${cse} (${cse === 1 ? "leaves dominate" : cse === 2 ? "every level costs the same" : "the root dominates"})</div><div class="ln"><b>T(n) = ${cls}</b></div>${extra || ""}<p style="margin:6px 0 0;font-size:13px;color:var(--muted)">Same decision as <code>master_theorem(${a}, ${b}, ${c})</code> in lecture06_recurrences.py (lines 49–71) → Case ${cse}.</p>`;
+  }
+  function treeBlock(last, workOf, unit, note) {
+    const rows = levelTable(last, workOf); const tot = rows.reduce((s, r) => s + r.work, 0);
+    return `<h3>Recursion tree — this run</h3><table><tr><th>level</th><th>calls</th><th>size n</th><th>work each</th><th>work at level</th></tr>${rows.map((r) => `<tr><td>${r.depth}</td><td>${r.calls}</td><td>${r.size}</td><td>${r.calls ? (r.work / r.calls) % 1 === 0 ? r.work / r.calls : (r.work / r.calls).toFixed(2) : 0}</td><td>${r.work}</td></tr>`).join("")}<tr class="tot"><td>total</td><td>${rows.reduce((s, r) => s + r.calls, 0)}</td><td></td><td></td><td>${tot} ${unit}</td></tr></table>${note || ""}`;
+  }
+  function substBlock(lines, closing) { return `<h3>Backward substitution — unroll, spot the pattern, hit the base case</h3>${lines.map((l) => `<div class="ln">${l}</div>`).join("")}<div class="ln"><b>${closing}</b></div>`; }
+  function tools(best, master, subst, tree) {
+    const card = (name, t, isBest) => `<div class="tool ${isBest ? "best" : t.na ? "na" : "ok"}"><div class="tt">${name}<span class="badge">${isBest ? "best here" : t.na ? "not applicable" : "works"}</span></div>${t.why}</div>`;
+    return `<div class="tools">${card("Master Theorem", master, best === "master")}${card("Backward substitution", subst, best === "subst")}${card("Recursion tree", tree, best === "tree")}</div>`;
+  }
+  function buildRecurrence() {
+    const k = key(), last = state.events[state.events.length - 1], c = last.cnt, n0 = state.values.length;
+    let h = "";
+    const rec = (T, meaning, answer) => `<h2>The recurrence for this code</h2><div class="tn">${T}<small>${meaning}</small></div><p class="ans">${answer}</p>`;
+    if (k === "linear" || k === "find_min") {
+      const n = n0, calls = c.calls;
+      h += rec("T(n) = T(n − 1) + 1", k === "linear" ? "n = window size" : "n = list length", "One call on a problem smaller by ONE, plus constant work → <b>Θ(n)</b>.");
+      h += tools("subst", { na: true, why: "Needs the form a·T(n/b) + n^c — a <em>division</em> of n. T(n − 1) subtracts, so the theorem says nothing." }, { why: "Unrolls in three lines: each step peels one and adds 1, so after n − 1 steps you reach the base case." }, { why: "Works but is just a chain: n nodes of cost 1 stacked vertically. Fine for intuition, no faster than unrolling." });
+      const lines = [`T(n) = T(n − 1) + 1`, `     = [T(n − 2) + 1] + 1 = T(n − 2) + 2`, `     = T(n − 3) + 3`, `     = … = T(n − k) + k`, `stop when n − k = 1 (the base case, cost 1):  k = n − 1`, `T(n) = T(1) + (n − 1) = 1 + (n − 1) = n`];
+      h += `<div class="work">${substBlock(lines, "T(n) = n → Θ(n)")}</div>`;
+      h += `<p class="measured">Predicted for n = ${n}: <b>${k === "linear" ? "≤ " + (n + 1) : n} calls</b> (${k === "linear" ? "n + 1 when the target is missing, fewer when found early" : "exactly n"}). Measured in this run: <b>${calls} calls</b>, ${c.comparisons} comparisons, stack depth ${c.max_depth}.</p>`;
+    } else if (k === "binary" || k === "power") {
+      const n = k === "binary" ? n0 : state.n, calls = c.calls, bound = n > 0 ? Math.floor(log2(n)) + 2 : 1;
+      h += rec("T(n) = T(n/2) + 1", k === "binary" ? "n = window size" : "n = the EXPONENT", "One call on HALF the problem, plus constant work → <b>Θ(log n)</b>.");
+      h += tools("master", { why: "Exactly the form a·T(n/b) + n^c with a = 1, b = 2, c = 0. One line of arithmetic gives the class." }, { why: "Also clean: T(n) = T(n/2^k) + k; the base case arrives when n/2^k = 1, i.e. k = log₂ n. Use it if you want to SEE the log." }, { why: "A single chain of log₂ n + 1 nodes, cost 1 each. Correct, but nothing to draw." });
+      h += `<div class="work">${masterBlock(1, 2, 0, `<div class="ln" style="margin-top:6px;color:var(--muted)">substitution check: T(n) = T(n/2) + 1 = T(n/4) + 2 = … = T(n/2^k) + k; n/2^k = 1 ⇒ k = log₂ n ⇒ T(n) = log₂ n + 1</div>`)}</div>`;
+      h += `<p class="measured">Predicted for n = ${n}: <b>≤ ⌊log₂ ${n}⌋ + 2 = ${bound} calls</b>${k === "binary" ? " (the +2: one for the final empty window, one because ⌊log₂ n⌋ rounds down)" : " (every call halves the exponent until it reaches 0)"}. Measured: <b>${calls} calls</b>, ${k === "binary" ? c.comparisons + " comparisons" : c.mults + " multiplications"}, depth ${c.max_depth}.</p>`;
+    } else if (k === "power_buggy") {
+      h += rec("T(n) = T(n/2) + 1  (for n ≥ 1)", "n = the exponent", "Same recurrence as power — <b>when it terminates</b>. For n = 0 the argument never shrinks, so there is no recurrence at all: T(0) = T(0) + 1 has no solution.");
+      h += tools("master", { why: "Applies for n ≥ 1 exactly as for power: Case 2 → Θ(log n)." }, { why: "Unrolling exposes the bug: T(0) = T(0//2) + 1 = T(0) + 1 — the unrolling never reaches a base case." }, { why: "For n = 0 the chain never ends." });
+      h += `<div class="work">${masterBlock(1, 2, 0)}<div class="ln" style="margin-top:6px;color:#b91c1c">n = 0: power_buggy(x, 0) → power_buggy(x, 0 // 2) = power_buggy(x, 0) → … RecursionError</div></div>`;
+      h += `<p class="measured">${last.vars.error ? `<span class="warn">This run never terminates</span> — shown for ${E.BUGGY_CAP} frames; Python raises RecursionError at its limit (1000).` : `For n = ${state.n} ≥ 1 it terminates: measured <b>${c.calls} calls</b>, depth ${c.max_depth}.`}</p>`;
+    } else if (k === "find_min2") {
+      const n = n0;
+      h += rec("T(n) = 2·T(n/2) + 1", "n = list length", "TWO calls on half the problem, plus constant work → <b>Θ(n)</b> — not log n. The halving is real, but nothing is thrown away.");
+      h += tools("tree", { why: "Applies: a = 2, b = 2, c = 0 → log₂ 2 = 1 > 0 → Case 1 → Θ(n). One line — but it does not show <em>why</em> the answer is linear." }, { why: "Possible but messy: T(n) = 2T(n/2) + 1 = 4T(n/4) + 3 = 8T(n/8) + 7 = … = n·T(1) + (n − 1) = 2n − 1. Doable, but the tree shows the same sum visually." }, { why: "Best for the insight: each level down doubles the number of calls while halving their size, so the leaves alone number n. Work per level: 1, 2, 4, …, n → total 2n − 1." });
+      h += `<div class="work">${treeBlock(last, () => 1, "calls (1 unit each)", `<div class="ln" style="margin-top:6px">levels: 1 + 2 + 4 + … + n = 2n − 1 = ${2 * n - 1}  →  Θ(n)</div>`)}<div style="margin-top:8px">${masterBlock(2, 2, 0)}</div></div>`;
+      h += `<p class="measured">Predicted for n = ${n}: <b>2n − 1 = ${2 * n - 1} calls</b>, n − 1 = ${n - 1} comparisons, depth ≈ ⌈log₂ n⌉ + 1. Measured: <b>${c.calls} calls</b>, ${c.comparisons} comparisons, depth ${c.max_depth}. Compare find_min (peel): same n − 1 comparisons, but n calls and depth n.</p>`;
+    } else if (k === "fib") {
+      const n = state.n, calls = c.calls;
+      h += rec("T(n) = T(n − 1) + T(n − 2) + 1", "n = the argument", "Two calls of DIFFERENT, subtractive sizes → <b>exponential</b>: Θ(φⁿ), φ ≈ 1.618.");
+      h += tools("tree", { na: true, why: "Not the form a·T(n/b) + n^c: the sizes are n − 1 and n − 2 (subtraction, and unequal). The theorem cannot even be stated." }, { why: "Unrolling gives an exact count (calls = 2·F(n+1) − 1) but no closed class unless you already know F(n) grows like φⁿ. Useful for the count, weak for the class." }, { why: "Draw it and BOUND it: every non-leaf has 2 children, the shortest root-to-leaf path has n/2 levels and the longest n. So 2^(n/2) ≤ calls ≤ 2^n — exponential either way. Also shows the repeated subproblems." });
+      h += `<div class="work">${treeBlock(last, () => 1, "calls", `<div class="ln" style="margin-top:6px">lower bound: T(n) ≥ 2·T(n − 2) ⇒ ≥ 2^(n/2) = ${Math.pow(2, n / 2).toFixed(1)};  upper bound: T(n) ≤ 2·T(n − 1) ⇒ ≤ 2^n = ${Math.pow(2, n)}</div><div class="ln">exact: calls = 2·F(n + 1) − 1 = 2·${fibN(n + 1)} − 1 = ${2 * fibN(n + 1) - 1}</div>`)}</div>`;
+      const reps = {}; last.nodes.forEach((nd) => { reps[nd.args.n] = (reps[nd.args.n] || 0) + 1; });
+      const dup = Object.keys(reps).filter((x) => reps[x] > 1).sort((a, b) => b - a).map((x) => `fib(${x}) ×${reps[x]}`).join(", ");
+      h += `<p class="measured">Predicted for n = ${n}: <b>${2 * fibN(n + 1) - 1} calls</b>. Measured: <b>${calls} calls</b>, ${c.adds} additions, depth ${c.max_depth}.${dup ? ` Repeated subproblems: ${dup}.` : ""} Slide 22: fib(10) → 177 calls, fib(20) → 21,891, fib(30) → 2,692,537.</p>`;
+    } else if (k === "fib_memo") {
+      const n = state.n;
+      h += rec("T(n) = T(n − 1) + 1", "n = the argument (memoized)", "With the memo, the second call is a lookup: effectively ONE call on n − 1 plus constant work → <b>Θ(n)</b>.");
+      h += tools("subst", { na: true, why: "Still subtractive — not the Master form." }, { why: "T(n) = T(n − 1) + 1 unrolls to n straight away. The hard part is seeing that the right call is O(1) — the animation shows the memo hit." }, { why: "Draw the naive tree and cross out every subtree whose root is already in the memo: what is left is a chain with one memo hit per level." });
+      h += `<div class="work">${treeBlock(last, () => 1, "calls (memo hits included)")}</div>`;
+      h += `<p class="measured">Predicted for n = ${n}: about <b>2n − 1 = ${Math.max(1, 2 * n - 1)} calls</b> (n real computations + n − 1 memo hits, ± base cases). Measured: <b>${c.calls} calls</b>, ${c.memo_hits} memo hits, ${c.adds} additions. Naive fibonacci(${n}) would need ${2 * fibN(n + 1) - 1}.</p>`;
+    } else {
+      const loop = k === "recurse2", n = state.n;
+      h += rec(loop ? "T(n) = 2·T(n/3) + n" : "T(n) = 2·T(n/3) + 1", "n = the argument", loop ? "Two calls on a third, plus a Θ(n) loop → Master Case 3 → <b>Θ(n)</b>." : "Two calls on a third, plus constant work → Master Case 1 → <b>Θ(n^log₃2) ≈ Θ(n^0.63)</b>.");
+      h += tools("master", { why: `Exactly the form: a = 2, b = 3, c = ${loop ? 1 : 0}. Compare log₃ 2 ≈ 0.63 with c and read off the case.` }, { why: "Possible (T(n) = 4T(n/9) + … ) but the geometric sums get fiddly; the tree organises the same sums by level." }, { why: loop ? "Shows WHY the root dominates: level work 27, 18, 12, 8, … shrinks by ⅔ each level — a geometric series ≤ 3n." : "Shows WHY the leaves dominate: level work 1, 2, 4, 8, … doubles each level; the last level has 2^(log₃ n) = n^0.63 leaves." });
+      h += `<div class="work">${masterBlock(2, 3, loop ? 1 : 0)}<div style="margin-top:8px">${treeBlock(last, (nd) => nd.work, "ticks")}</div></div>`;
+      const other = E.trace(loop ? "recurse" : "recurse2", opts()); const oc = other[other.length - 1].cnt;
+      h += `<p class="measured">Measured T(${n}) = <b>${c.ticks} ticks</b> over ${c.calls} calls (depth ${c.max_depth}). The other version on the same n: ${loop ? "recurse" : "recurse2"} = ${oc.ticks} ticks. Same recursion — the loop changed the class from n^0.63 to n.</p>`;
+    }
+    $("recur").innerHTML = h;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* render                                                              */
+  /* ------------------------------------------------------------------ */
+  let lastCnt = null, lastVars = null;
+  function render(ev, prev) {
+    const k = key();
+    if (FAM(k) === "window") renderWindow(ev, k); else renderTree(ev, k);
+    $("ex-now").innerHTML = ev.text; $("ex-inv").innerHTML = ev.inv; $("ex-stab").textContent = "";
+    renderCounters(ev, prev, k); renderVars(ev, k);
+    document.querySelectorAll("#code .ln").forEach((l) => l.classList.toggle("hl", +l.dataset.line === ev.line));
+    const hl = document.querySelector("#code .ln.hl"); if (hl) hl.scrollIntoView({ block: "nearest" });
+    $("timeline").value = state.idx; $("pos-i").textContent = state.idx;
+    $("pos-k").textContent = ev.k.replace(/_/g, " ") + `  ·  depth ${ev.depth}`;
+    $("btn-prev").disabled = state.idx === 0; $("btn-prev-pass").disabled = state.idx === 0;
+    const atEnd = state.idx >= state.events.length - 1; $("btn-next").disabled = atEnd; $("btn-next-pass").disabled = atEnd; $("btn-end").disabled = atEnd;
+  }
+  function renderWindow(ev, k) {
+    const n = ev.slots.length, R = ev.roles, v = ev.vars;
+    for (let i = 0; i < n; i++) {
+      const el = state.slotEls[i], s = ev.slots[i];
+      el.querySelector(".val").textContent = s.key;
+      const cls = ["slot"]; let cap = "";
+      if (R.dim.includes(i) && ev.k !== "done") cls.push("dim");
+      if (ev.found === i) { cls.push("found"); cap = "found"; }
+      if (R.cmp === i) { cls.push("cmp"); cap = k === "binary" ? "mid · cmp" : "comparing"; }
+      else if (R.mid === i) cap = "mid";
+      el.className = cls.join(" "); el.querySelector(".cap").textContent = cap; el.querySelector(".lock").textContent = ev.found === i ? "✓" : "";
+    }
+    document.querySelectorAll("#ptr-rows .ptr").forEach((p) => { const nm = p.dataset.name, val = v[nm]; if (val == null || val < 0 || val >= n || ev.k === "done" || ev.k === "start") { p.classList.remove("show"); return; } p.classList.add("show"); p.style.left = left(val) + "px"; p.querySelector(".lbl").textContent = nm; });
+    const br = $("bracket"), bl = $("bracket-label");
+    if (R.window && ev.k !== "done") { br.classList.add("show"); br.style.left = (left(R.window[0]) - 4) + "px"; br.style.width = (left(R.window[1]) + state.tile - left(R.window[0]) + 8) + "px"; bl.textContent = k === "linear" ? `window d[${R.window[0]}..${R.window[1]}]` : `window L[${R.window[0]}..${R.window[1]}]`; } else br.classList.remove("show");
+    // frames
+    const fr = state.frames.el; fr.querySelectorAll(".frame").forEach((e) => e.remove());
+    const frames = ev.frames || [];
+    frames.forEach((f, i) => {
+      const d = document.createElement("div"); d.className = "frame " + f.state; d.style.top = (18 + (frames.length - 1 - i) * 36) + "px"; d.style.left = "0px"; d.style.width = Math.min(560, ($("stage").clientWidth || 800)) + "px";
+      const lab = k === "linear" ? `_ls(d, ${f.vars.target}, left=${f.vars.left}, right=${f.vars.right})` : `_binary_search(L, ${f.vars.target}, low=${f.vars.low}, high=${f.vars.high})`;
+      d.innerHTML = `<span class="d">depth ${i + 1}</span><span>${lab}</span>` + (f.state === "returned" ? `<span class="rv">→ ${tf(f.ret)}</span>` : f.state === "waiting" ? `<span class="rv" style="color:var(--muted)">waiting…</span>` : "");
+      if (f.state === "returned" && !f.ret) d.classList.add("no");
+      fr.appendChild(d);
+    });
+  }
+  function renderTree(ev, k) {
+    const T = state.tree, N = ev.nodes, onPath = new Set(ev.stack);
+    Object.values(T.els).forEach((o) => { o.el.className = "node hidden"; o.el.querySelectorAll(".rv,.wk,.lab").forEach((x) => { x.textContent = ""; }); o.el.querySelectorAll(".mt i").forEach((x) => { x.textContent = ""; x.className = ""; }); });
+    document.querySelectorAll("#edges line").forEach((l) => { l.style.display = "none"; l.classList.remove("on"); });
+    const dupCount = {}; if (k.startsWith("fib")) N.forEach((nd) => { dupCount[nd.args.n] = (dupCount[nd.args.n] || 0) + 1; });
+    N.forEach((nd) => {
+      const o = T.els[nd.id]; if (!o) return;
+      const cls = ["node", nd.state === "active" && nd.id !== ev.cur ? "waiting" : nd.state];
+      if (nd.id === ev.cur && ev.k !== "done" && nd.state !== "done" && nd.state !== "memo" && nd.state !== "error") cls[1] = "active";
+      if (k.startsWith("fib") && dupCount[nd.args.n] > 1 && nd.state !== "done" && nd.id === ev.cur) cls.push("dup");
+      o.el.className = cls.join(" ");
+      if (nd.vals) { const tiles = o.el.querySelectorAll(".mt i"); nd.vals.forEach((s, i) => { tiles[i].textContent = s.key; tiles[i].className = (nd.id === ev.cur && ev.roles.cmp.includes(i)) ? "cmp" : ""; }); }
+      else { const lab = k.startsWith("power") ? `${k === "power" ? "power" : "power_buggy"}(${nd.args.x}, ${nd.args.n})` : k.startsWith("fib") ? `${k === "fib" ? "fib" : "good_fib"}(${nd.args.n})` : `${k}(${nd.args.n})`; o.el.querySelector(".lab").textContent = o.w < 90 && k.startsWith("power") ? `p(${nd.args.x},${nd.args.n})` : o.w < 62 && k.startsWith("fib") ? `f(${nd.args.n})` : o.w < 70 && k.startsWith("recurse") ? `r(${nd.args.n})` : lab; }
+      o.el.querySelector(".rv").textContent = nd.ret != null ? `= ${nd.ret}` : (nd.state === "error" ? "✗" : "");
+      const wk = o.el.querySelector(".wk"); if (wk) wk.textContent = nd.work ? `work ${nd.work}` : "";
+      const ln = document.querySelector(`#edges line[data-id="${nd.id}"]`); if (ln) { ln.style.display = ""; if (onPath.has(nd.id) && onPath.has(nd.parent)) ln.classList.add("on"); }
+    });
+    const sl = $("stackline"); sl.classList.add("show");
+    const lab = (nd) => nd.vals ? `${k}(${fmtList(nd.vals)})` : k.startsWith("power") ? `${k}(${nd.args.x}, ${nd.args.n})` : `${k === "fib" ? "fibonacci" : k === "fib_memo" ? "good_fib" : k}(${nd.args.n})`;
+    sl.innerHTML = `call stack (depth ${ev.depth}): ` + (ev.stack.length ? ev.stack.map((id, i) => i === ev.stack.length - 1 ? `<b><code>${lab(N[id])}</code></b>` : `<code>${lab(N[id])}</code>`).join(" › ") : "<code>—</code>") + (ev.memo ? `  ·  memo {${ev.memo.map((p) => `${p[0]}: ${p[1]}`).join(", ")}}` : "");
+  }
+  function renderCounters(ev, prev, k) {
+    const defs = { linear: [["calls", "calls", "one per frame"], ["comparisons", "comparisons", "d[left] == v"], ["max_depth", "max depth", "stack frames"]], binary: [["calls", "calls", "one per frame"], ["comparisons", "comparisons", "==, then <"], ["max_depth", "max depth", "stack frames"]],
+      power: [["calls", "calls", "⌊log₂ n⌋ + 2"], ["mults", "multiplications", "half·half, ·x"], ["max_depth", "max depth", "stack frames"]], find_min: [["calls", "calls", "= n"], ["comparisons", "comparisons", "= n − 1"], ["max_depth", "max depth", "= n"]], find_min2: [["calls", "calls", "= 2n − 1"], ["comparisons", "comparisons", "= n − 1"], ["max_depth", "max depth", "≈ log₂ n"]],
+      fib: [["calls", "calls", "2·F(n+1) − 1"], ["adds", "additions", "left + right"], ["max_depth", "max depth", "= n"]], fib_memo: [["calls", "calls", "≈ 2n − 1"], ["memo_hits", "memo hits", "lookups"], ["adds", "additions", ""], ["max_depth", "max depth", "= n"]],
+      recurse: [["calls", "calls", "2^levels − 1"], ["ticks", "ticks = T(n)", "measured work"], ["max_depth", "max depth", "levels"]] };
+    defs.power_buggy = defs.power; defs.recurse2 = defs.recurse;
+    const cdef = defs[k], cw = $("counters");
+    if (cw.dataset.algo !== k) { cw.dataset.algo = k; cw.innerHTML = cdef.map((d) => `<div class="stat" data-k="${d[0]}"><div class="v">0</div><div class="l">${d[1]}</div><div class="s">${d[2]}</div></div>`).join(""); lastCnt = null; }
+    cdef.forEach((d) => { const el = cw.querySelector(`[data-k="${d[0]}"]`), val = ev.cnt[d[0]], vEl = el.querySelector(".v"); if (vEl.textContent !== String(val)) { vEl.textContent = val; if (prev && lastCnt && val > lastCnt[d[0]]) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); } } });
+    lastCnt = ev.cnt;
+    $("counters-note").textContent = k.startsWith("recurse") ? "ticks reproduce lecture06's _tick() counter exactly (COUNTER after measure())." : "Measured by this page's trace of the lecture code; the files themselves have no counters (lecture06 measures the same quantities with _tick()).";
+  }
+  function renderVars(ev, k) {
+    const v = ev.vars;
+    const vdef = { linear: ["left", "right", "target", "n", "depth"], binary: ["low", "mid", "high", "target", "n", "depth"], power: ["x", "n", "half", "result", "depth"], power_buggy: ["x", "n", "half", "result", "depth"],
+      find_min: ["n", "rest_min", "last", "depth"], find_min2: ["n", "mid", "left_min", "right_min", "depth"], fib: ["n", "left", "right", "result", "depth"], fib_memo: ["n", "left", "right", "result", "depth"], recurse: ["n", "work", "left", "right", "depth"], recurse2: ["n", "work", "left", "right", "depth"] }[k];
+    $("vars").innerHTML = vdef.map((nm) => { const val = nm === "depth" ? ev.depth : v[nm]; const changed = lastVars && lastVars.k === k && JSON.stringify(lastVars.v[nm]) !== JSON.stringify(val); const txt = val == null ? "None" : typeof val === "boolean" ? tf(val) : String(val); return `<div class="var ${changed ? "changed" : ""}"><div class="n">${nm === "n" && k === "find_min" ? "len(arr)" : nm}</div><div class="v ${val == null ? "none" : ""}">${txt}</div></div>`; }).join("");
+    lastVars = { k, v: Object.assign({ depth: ev.depth }, v) };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* navigation                                                          */
+  /* ------------------------------------------------------------------ */
+  function goTo(i) { i = Math.max(0, Math.min(state.events.length - 1, i)); const prev = state.events[state.idx]; state.idx = i; render(state.events[i], prev); }
+  function stepNext() { const next = state.idx + 1; if (next >= state.events.length) return false; if (state.predict && state.events[next].predict && state.pending !== next) { showPredict(next); return false; } hidePredict(); goTo(next); return true; }
+  function stepPrev() { hidePredict(); goTo(state.idx - 1); }
+  function nextPass() { hidePredict(); let i = state.idx + 1; while (i < state.events.length - 1 && !isBoundary(state.events[i])) i++; goTo(i); }
+  function prevPass() { hidePredict(); let i = state.idx - 1; while (i > 0 && !isBoundary(state.events[i])) i--; goTo(i); }
+  function reset() { stop(); hidePredict(); goTo(0); }
+  function dwell(ev) { const base = { compare: 1500, compare_eq: 1500, compare_lt: 1500, check_empty: 1000, call: 1000, base: 1200, return: 1200, recurse: 1100, recurse_left: 1100, recurse_right: 1100, memo_hit: 1300, recursion_error: 2200, done: 0, start: 700 }[ev.k] || 1000; return base / state.speed; }
+  function play() { if (state.idx >= state.events.length - 1) goTo(0); state.playing = true; $("btn-play").textContent = "⏸ Pause"; $("btn-play").setAttribute("aria-pressed", "true"); const tick = () => { if (!state.playing) return; if (!stepNext()) { stop(); return; } state.timer = setTimeout(tick, dwell(state.events[state.idx])); }; tick(); }
+  function stop() { state.playing = false; if (state.timer) { clearTimeout(state.timer); state.timer = null; } $("btn-play").textContent = "▶ Play"; $("btn-play").setAttribute("aria-pressed", "false"); }
+  function togglePlay() { state.playing ? stop() : play(); }
+  function showPredict(next) { state.pending = next; $("predict-q").textContent = "Predict: " + state.events[next].predict; $("predict").classList.add("show"); }
+  function hidePredict() { state.pending = -1; $("predict").classList.remove("show"); }
+  function reveal() { if (state.pending === -1) return; const n = state.pending; hidePredict(); goTo(n); if (state.playing) state.timer = setTimeout(() => { if (state.playing) play(); }, dwell(state.events[state.idx])); }
+
+  /* ------------------------------------------------------------------ */
+  /* inputs                                                              */
+  /* ------------------------------------------------------------------ */
+  function presets() { return E.PRESETS[presetGroup()]; }
+  function fillInputSelect() {
+    const sel = $("sel-input"), ps = presets();
+    sel.innerHTML = ps.map((p, i) => `<option value="${p[0]}">${i + 1} · ${PL[p[0]] || p[0]}</option>`).join("") + `<option value="custom">custom…</option>`;
+    if (!ps.some((p) => p[0] === state.inputName) && state.inputName !== "custom") applyPreset(ps[0]);
+    sel.value = state.inputName;
+    showCustomRow();
+  }
+  function applyPreset(p) {
+    state.inputName = p[0];
+    const g = presetGroup();
+    if (g === "linear" || g === "binary") { state.values = p[1].slice(); state.target = p[2]; }
+    else if (g === "power") { state.x = p[1]; state.n = p[2]; }
+    else if (g === "find_min") state.values = p[1].slice();
+    else state.n = p[1];
+  }
+  function showCustomRow() {
+    const g = presetGroup(), show = state.inputName === "custom";
+    $("custom-row").classList.toggle("show", show);
+    $("cf-list").style.display = (g === "linear" || g === "binary" || g === "find_min") ? "" : "none";
+    $("cf-target").style.display = (g === "linear" || g === "binary") ? "" : "none";
+    $("cf-x").style.display = g === "power" ? "" : "none";
+    $("cf-n").style.display = (g === "power" || g === "fib" || g === "recurse") ? "" : "none";
+    $("custom-text").value = state.values.join(", "); $("custom-target").value = state.target; $("custom-x").value = state.x; $("custom-n").value = state.n;
+  }
+  function applyCustom() {
+    const msg = $("custom-msg"); msg.textContent = ""; const g = presetGroup();
+    try {
+      if (g === "linear" || g === "binary" || g === "find_min") {
+        let vals = $("custom-text").value.split(",").map((s) => s.trim()).filter(Boolean).map((s) => { const v = Number(s); if (Number.isNaN(v)) throw new Error(`cannot read "${s}"`); return v; });
+        if (vals.length > 12) { vals = vals.slice(0, 12); msg.textContent = "Showing the first 12 values."; }
+        if (g === "binary" && vals.some((v, i) => i && v < vals[i - 1])) { vals = vals.slice().sort((a, b) => a - b); msg.textContent = "Binary search needs a sorted list — sorted it for you."; }
+        state.values = vals; state.target = Number($("custom-target").value) || 0;
+      } else if (g === "power") { state.x = Number($("custom-x").value) || 0; state.n = Math.max(0, Math.min(40, Math.floor(Number($("custom-n").value) || 0))); if (Math.abs(Math.pow(state.x, state.n)) > 9007199254740991) { msg.textContent = "Result too large for exact display in the browser (> 2^53) — keep |x|^n small."; return; } }
+      else if (g === "fib") { state.n = Math.max(0, Math.min(8, Math.floor(Number($("custom-n").value) || 0))); if (Number($("custom-n").value) > 8) msg.textContent = "n capped at 8 (fib(8) already makes 67 calls)."; }
+      else { state.n = Math.max(0, Math.min(243, Math.floor(Number($("custom-n").value) || 0))); if (Number($("custom-n").value) > 243) msg.textContent = "n capped at 243 (six levels)."; }
+      rebuild();
+    } catch (e) { msg.textContent = "Could not parse: " + e.message; }
+  }
+  function setAlgo(a) { state.algo = a; document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.algo === a))); lastVars = null; fillInputSelect(); rebuild(); }
+  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => setAlgo(b.dataset.algo)));
+  $("sel-input").addEventListener("change", (e) => { const v = e.target.value; if (v === "custom") { state.inputName = "custom"; showCustomRow(); } else { applyPreset(presets().find((p) => p[0] === v)); showCustomRow(); rebuild(); } });
+  $("btn-apply").addEventListener("click", applyCustom);
+  ["custom-text", "custom-target", "custom-x", "custom-n"].forEach((id) => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") applyCustom(); }));
+  $("chk-buggy").addEventListener("change", (e) => { state.buggy = e.target.checked; rebuild(); });
+  $("chk-memo").addEventListener("change", (e) => { state.memo = e.target.checked; rebuild(); });
+  $("chk-loop").addEventListener("change", (e) => { state.loop = e.target.checked; rebuild(); });
+  $("chk-predict").addEventListener("change", (e) => { state.predict = e.target.checked; if (!state.predict) hidePredict(); });
+  $("chk-motion").addEventListener("change", (e) => { document.documentElement.classList.toggle("reduce-motion", e.target.checked); });
+  function toggleHelp(force) { const h = $("help"); const show = force != null ? force : !h.classList.contains("show"); h.classList.toggle("show", show); $("btn-help").setAttribute("aria-expanded", String(show)); }
+  $("btn-help").addEventListener("click", () => toggleHelp());
+  $("btn-reset").addEventListener("click", reset);
+  $("btn-prev").addEventListener("click", () => { stop(); stepPrev(); });
+  $("btn-next").addEventListener("click", () => { stop(); stepNext(); });
+  $("btn-prev-pass").addEventListener("click", () => { stop(); prevPass(); });
+  $("btn-next-pass").addEventListener("click", () => { stop(); nextPass(); });
+  $("btn-end").addEventListener("click", () => { stop(); hidePredict(); goTo(state.events.length - 1); });
+  $("btn-play").addEventListener("click", togglePlay);
+  $("btn-reveal").addEventListener("click", reveal);
+  $("speed").addEventListener("input", (e) => { state.speed = parseFloat(e.target.value); $("speed-v").textContent = state.speed + "×"; });
+  $("timeline").addEventListener("input", (e) => { stop(); hidePredict(); goTo(parseInt(e.target.value, 10)); });
+  document.addEventListener("keydown", (e) => {
+    const t = e.target; if (t && ((t.tagName === "INPUT" && t.type !== "range" && t.type !== "checkbox") || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+    const kk = e.key;
+    if (kk === " ") { e.preventDefault(); togglePlay(); }
+    else if (kk === "ArrowRight") { e.preventDefault(); stop(); if (e.shiftKey) nextPass(); else if (state.pending !== -1) reveal(); else stepNext(); }
+    else if (kk === "Enter" && state.pending !== -1) { e.preventDefault(); reveal(); }
+    else if (kk === "ArrowLeft") { e.preventDefault(); stop(); if (e.shiftKey) prevPass(); else stepPrev(); }
+    else if (kk === "Home") { e.preventDefault(); reset(); }
+    else if (kk === "End") { e.preventDefault(); stop(); hidePredict(); goTo(state.events.length - 1); }
+    else if ("1234567".includes(kk) && kk.length === 1) setAlgo(["linear", "binary", "power", "find_min", "find_min2", "fib", "recurse"][+kk - 1]);
+    else if (kk === "+" || kk === "=") { $("speed").value = Math.min(4, state.speed + 0.25); $("speed").dispatchEvent(new Event("input")); }
+    else if (kk === "-" || kk === "_") { $("speed").value = Math.max(0.25, state.speed - 0.25); $("speed").dispatchEvent(new Event("input")); }
+    else if (kk === "p" || kk === "P") { $("chk-predict").checked = !$("chk-predict").checked; $("chk-predict").dispatchEvent(new Event("change")); }
+    else if (kk === "m" || kk === "M") { $("chk-motion").checked = !$("chk-motion").checked; $("chk-motion").dispatchEvent(new Event("change")); }
+    else if (kk === "?") toggleHelp();
+    else if (kk === "Escape") toggleHelp(false);
+  });
+  let resizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { buildStage(); render(state.events[state.idx], null); }, 120); });
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) { $("chk-motion").checked = true; document.documentElement.classList.add("reduce-motion"); }
+  window.__anim = { state, key, goTo, stepNext, stepPrev, nextPass, prevPass, reset, play, stop, setAlgo, applyCustom, reveal };
+  fillInputSelect(); rebuild();
+})();
+</script>
+</body>
+</html>
